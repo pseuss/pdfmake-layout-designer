@@ -225,12 +225,11 @@ The same example exists in every demo. Customers and invoices come from a JSON "
 | Next.js (`examples/next`, port 5301) | `/generator` | on the server, in API routes |
 | Nuxt (`examples/nuxt`, port 5302) | `/generator` | on the server, in Nitro routes |
 | Vanilla (`pnpm dev`, port 5199) | `/generator.html` | in the browser |
-| Plain Node (`pnpm example:generator`, port 5303) | `/` | on the server, no framework |
 
 * **Invoices:** ten positions per invoice, one PDF per invoice or all invoices in one PDF (`generateBatch`).
 * **Form letters:** one personalised letter per selected customer (Lorem ipsum, stationery, SVG logo and a PNG seal), all in a single PDF.
 
-The rows are in `examples/shared/generator/db.json`, the Layouts are `invoice.layout.json` and `letter.layout.json` next to it (written by `seed.mjs`, but any Layout from the Designer works the same way). `service.mjs` is the Host App's side: read rows, pick the Layout, call `generate` / `generateBatch`.
+The rows are in `examples/shared/generator/db.json`, the Layouts are `invoice.layout.json` and `letter.layout.json` next to it (written by `seed.mjs`, but any Layout from the Designer works the same way). `service.mjs` is the Host App's side (it has no framework dependency, so it works in any Node backend): read rows, pick the Layout, call `generate` / `generateBatch`.
 
 ## Development
 

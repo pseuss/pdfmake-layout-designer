@@ -1,6 +1,6 @@
 // Creates the example "database" (data/db.json) and the two Layouts (data/*.layout.json).
 // In a real app the Layouts come out of the Designer and live in your database; they are written here as code so the example is self-contained.
-// Run once with `pnpm --filter example-generator seed`; the generated files are committed.
+// Run once with `node examples/shared/generator/seed.mjs`; the generated files are committed.
 import { readFileSync, writeFileSync } from 'node:fs'
 
 const asset = (name) => new URL(`../../../fixtures/assets/${name}`, import.meta.url)

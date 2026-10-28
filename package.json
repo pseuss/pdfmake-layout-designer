@@ -13,7 +13,6 @@
     "check": "node scripts/build-styles.mjs --check && pnpm typecheck && pnpm build && pnpm test && pnpm test:dist && pnpm test:e2e",
     "fixtures": "node scripts/make-fixtures.mjs",
     "dev": "vite examples/vanilla",
-    "example:generator": "pnpm --filter example-generator start",
     "build:examples": "pnpm --filter example-next --filter example-nuxt build"
   },
   "devDependencies": {

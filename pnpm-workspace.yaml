@@ -2,6 +2,5 @@ packages:
   - "packages/*"
   - "examples/next"
   - "examples/nuxt"
-  - "examples/generator"
 allowBuilds:
   esbuild: true

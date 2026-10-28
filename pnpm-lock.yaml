@@ -215,12 +215,6 @@ importers:
         specifier: ^3.5.44
         version: 3.5.44(typescript@7.0.2)
 
-  examples/generator:
-    dependencies:
-      '@pdf-layouter/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-
   examples/next:
     dependencies:
       '@pdf-layouter/core':
