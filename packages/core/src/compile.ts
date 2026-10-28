@@ -140,7 +140,38 @@ function tableLayout(style: TableStyle) {
   }
 }
 
-function buildTable(columns: Column[], rows: Record<string, unknown>[], style: TableStyle, ctx: FormatContext, warn: (w: Warning) => void, source: string): Node {
+/** Smallest width (mm) a '*' column keeps when fixed columns have to give way. */
+const MIN_STAR_MM = 20
+/** Millimetre gap between blocks that share a row. */
+export const ROW_GAP_MM = 4
+
+/**
+ * Column widths that fit into `availMm`: fixed columns shrink proportionally when together with
+ * the '*' columns' minimum they would exceed the available width, so a table never leaves its box.
+ */
+export function fitColumnWidths(columns: Column[], availMm: number): Column['width'][] {
+  const fixed = columns.reduce((sum, c) => sum + (typeof c.width === 'number' ? c.width : 0), 0)
+  const stars = columns.filter((c) => c.width === '*').length
+  const room = availMm - stars * MIN_STAR_MM
+  if (fixed <= room || fixed === 0) return columns.map((c) => c.width)
+  const factor = Math.max(0.2, room / fixed)
+  return columns.map((c) => (typeof c.width === 'number' ? Math.round(c.width * factor * 100) / 100 : c.width))
+}
+
+/** Widths (mm) of the blocks of one row: fixed widths keep their size, '*' blocks share the rest equally. */
+export function rowWidthsMm(blocks: FlowBlock[], availMm: number): number[] {
+  const gaps = (blocks.length - 1) * ROW_GAP_MM
+  const fixed = blocks.map((b) => ('width' in b && typeof b.width === 'number' ? b.width : undefined))
+  const fixedSum = fixed.reduce<number>((sum, w) => sum + (w ?? 0), 0)
+  const stars = fixed.filter((w) => w === undefined).length
+  const room = availMm - gaps
+  const scale = fixedSum > room - stars * MIN_STAR_MM && fixedSum > 0 ? Math.max(0.2, (room - stars * MIN_STAR_MM) / fixedSum) : 1
+  const share = stars ? Math.max(0, (room - fixedSum * scale) / stars) : 0
+  return fixed.map((w) => (w === undefined ? share : w * scale))
+}
+
+function buildTable(columns: Column[], rows: Record<string, unknown>[], style: TableStyle, ctx: FormatContext, warn: (w: Warning) => void, source: string, availMm?: number): Node {
+  const widths = availMm === undefined ? columns.map((c) => c.width) : fitColumnWidths(columns, availMm)
   const header = columns.map((c) => {
     const cell: Node = { text: c.title, bold: true, alignment: c.align }
     if (style.headerFill) cell.fillColor = style.headerFill
@@ -160,7 +191,7 @@ function buildTable(columns: Column[], rows: Record<string, unknown>[], style: T
     table: {
       headerRows: 1,
       dontBreakRows: true,
-      widths: columns.map((c) => (typeof c.width === 'number' ? mmToPt(c.width) : c.width)),
+      widths: widths.map((w) => (typeof w === 'number' ? mmToPt(w) : w)),
       body: [header, ...body],
     },
     layout: tableLayout(style),
@@ -169,15 +200,14 @@ function buildTable(columns: Column[], rows: Record<string, unknown>[], style: T
   }
 }
 
-/** mm gap between blocks that share a row */
-const ROW_GAP_MM = 4
 const ROW_TYPES = new Set<FlowBlock['type']>(['text', 'table', 'totals'])
 
 function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: Warning) => void): Node[] {
+  const contentMm = pageSizeMm(layout).w - layout.page.contentBox.first.left - layout.page.contentBox.first.right
   const resolve = (s: string) => resolveTemplate(s, data, ctx, warn)
 
   /** Nodes of one block; `inRow` totals fill their column instead of aligning themselves. */
-  const blockNodes = (block: FlowBlock, inRow: boolean): Node[] => {
+  const blockNodes = (block: FlowBlock, inRow: boolean, availMm: number): Node[] => {
     const out: Node[] = []
     switch (block.type) {
       case 'text':
@@ -189,7 +219,7 @@ function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: War
           warn({ code: 'missing-list', message: `No list "${block.source}" in the data; table skipped` })
           break
         }
-        out.push(buildTable(block.columns, rows as Record<string, unknown>[], block.style, ctx, warn, block.source))
+        out.push(buildTable(block.columns, rows as Record<string, unknown>[], block.style, ctx, warn, block.source, availMm))
         break
       }
       case 'totals': {
@@ -241,7 +271,7 @@ function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: War
             out.push({ stack: richNodes(toBlocks(item.content as string | Run[] | RichBlock[]), resolve), margin: block.styles.text.margin })
           } else {
             const style = TableStyleSchema.parse({ ...block.styles.table, ...item.style })
-            out.push(buildTable(item.columns, item.rows, style, ctx, warn, `${block.source}[${index}]`))
+            out.push(buildTable(item.columns, item.rows, style, ctx, warn, `${block.source}[${index}]`, availMm))
           }
         })
         break
@@ -267,14 +297,12 @@ function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: War
   const out: Node[] = []
   for (const row of rows) {
     if (row.length === 1) {
-      out.push(...blockNodes(row[0]!, false))
+      out.push(...blockNodes(row[0]!, false, contentMm))
       continue
     }
+    const widths = rowWidthsMm(row, contentMm)
     out.push({
-      columns: row.map((block) => {
-        const width = 'width' in block && block.width !== undefined && block.width !== '*' ? mmToPt(block.width) : '*'
-        return { width, stack: blockNodes(block, true) }
-      }),
+      columns: row.map((block, i) => ({ width: mmToPt(widths[i]!), stack: blockNodes(block, true, widths[i]!) })),
       columnGap: mmToPt(ROW_GAP_MM),
     })
   }

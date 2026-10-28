@@ -537,4 +537,19 @@ describe('blocks side by side in the Content Box', () => {
     expect(Math.abs(b.y - c.y)).toBeLessThan(1)
     expect(leftMm(b.x)).toBeCloseTo(25, 0)
   })
+
+  it('shrinks fixed table columns so a table in a narrow column stays inside the Content Box', async () => {
+    const layout = rowLayout([
+      text('Text'),
+      { type: 'table', source: 'items', sameRow: true, columns: [
+        { field: 'a', title: 'AAA', width: 12 },
+        { field: 'b', title: 'BBB', width: '*' },
+        { field: 'c', title: 'CCC', width: 30 },
+        { field: 'd', title: 'DDD', width: 40 },
+      ] },
+    ])
+    const info = await readPdf(await generate(layout, { items: [{ a: '1', b: 'x', c: '2', d: 'ENDE' }] }, { fonts }))
+    const last = info.pages[0]!.items.find((i) => i.str === 'ENDE')!
+    expect(leftMm(last.x)).toBeLessThan(210 - 20 - 5) // starts inside the box: page width minus right margin and some text width
+  })
 })

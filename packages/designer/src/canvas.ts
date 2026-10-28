@@ -1,4 +1,4 @@
-import { ADDRESS_PRESETS, applyFormatter, isSvgAsset, lookup, pageRuleMatches, pageSizeMm, toBlocks, type FlowBlock, type Layout, type StaticElement } from '@pdf-layouter/core'
+import { ADDRESS_PRESETS, applyFormatter, fitColumnWidths, isSvgAsset, lookup, ROW_GAP_MM, rowWidthsMm, pageRuleMatches, pageSizeMm, toBlocks, type FlowBlock, type Layout, type StaticElement } from '@pdf-layouter/core'
 import { clear, h } from './dom'
 import { cssFontFamily } from './fonts'
 import { moveStatic, staticRect } from './actions'
@@ -24,8 +24,6 @@ interface Session {
 
 const FLOW_HEIGHT_MM: Record<FlowBlock['type'], number> = { text: 14, table: 40, totals: 20, dynamicSections: 30, pageBreak: 6 }
 const ROW_TYPES = new Set<FlowBlock['type']>(['text', 'table', 'totals'])
-/** Must match the gap the Generator puts between blocks of one row. */
-const ROW_GAP_MM = 4
 const SAMPLE_ROWS = 4
 
 export class Canvas {
@@ -355,7 +353,9 @@ export class Canvas {
       else rows.push([index])
     })
     for (const row of rows) {
-      const cards = row.map((index) => this.renderFlowCard(layout, layout.flow[index]!, index, row.length > 1))
+      // widths follow the Generator's calculation, so a block never leaves the Content Box here or in the PDF
+      const widths = row.length > 1 ? rowWidthsMm(row.map((i) => layout.flow[i]!), rect.w) : [rect.w]
+      const cards = row.map((index, n) => this.renderFlowCard(layout, layout.flow[index]!, index, row.length > 1 ? widths[n]! : undefined, rect.w))
       if (row.length === 1) inner.append(cards[0]!)
       else inner.append(h('div', { class: 'pld-flowrow', 'data-testid': `flowrow-${row[0]}`, style: { gap: this.px(ROW_GAP_MM) } }, ...cards))
     }
@@ -365,7 +365,7 @@ export class Canvas {
     return box
   }
 
-  private renderFlowCard(layout: Layout, block: FlowBlock, index: number, shared: boolean): HTMLElement {
+  private renderFlowCard(layout: Layout, block: FlowBlock, index: number, sharedMm: number | undefined, boxMm: number): HTMLElement {
     const selected = this.store.selection.kind === 'flow' && this.store.selection.index === index
     const fmt = this.formatValue(layout)
     const font = cssFontFamily(('font' in block && block.font) || layout.page.defaults.font)
@@ -379,8 +379,9 @@ export class Canvas {
     else if (block.type === 'dynamicSections') card.style.height = this.px(FLOW_HEIGHT_MM.dynamicSections)
     // a width in millimetres is true to scale, '*' shares what is left of the row
     const width = 'width' in block ? block.width : undefined
-    if (typeof width === 'number' && (shared || block.type === 'totals')) Object.assign(card.style, { width: this.px(width), flex: 'none', maxWidth: '100%' })
-    else if (shared) card.style.flex = '1 1 0'
+    const availMm = sharedMm ?? boxMm
+    if (sharedMm !== undefined) Object.assign(card.style, { width: this.px(sharedMm), flex: 'none', maxWidth: '100%' })
+    else if (typeof width === 'number' && block.type === 'totals') Object.assign(card.style, { width: this.px(Math.min(width, boxMm)), flex: 'none' })
 
     const body = h('div', { class: 'pld-flowbody', style: { fontFamily: font, fontSize: pt(layout.page.defaults.size), color: layout.page.defaults.color } })
     const text = (template: string, into: HTMLElement) => {
@@ -414,7 +415,7 @@ export class Canvas {
         body.append(para)
       }
     } else if (block.type === 'table') {
-      body.append(this.tableMock(layout, block, fmt))
+      body.append(this.tableMock(layout, block, fmt, availMm))
     } else if (block.type === 'totals') {
       const table = h('div', { class: 'pld-flowtotals' })
       for (const row of block.rows) {
@@ -434,14 +435,14 @@ export class Canvas {
   }
 
   /** A true-to-scale mock-up of a table: column widths, titles, alignment, formats, zebra and borders. */
-  private tableMock(layout: Layout, block: Extract<FlowBlock, { type: 'table' }>, fmt: (value: unknown, formatter: string | undefined) => string): HTMLElement {
+  private tableMock(layout: Layout, block: Extract<FlowBlock, { type: 'table' }>, fmt: (value: unknown, formatter: string | undefined) => string, availMm: number): HTMLElement {
     const style = block.style
     const rows = lookup(this.store.sampleData, block.source)
     const real = Array.isArray(rows) ? (rows as Record<string, unknown>[]) : []
     const shown = real.slice(0, SAMPLE_ROWS)
     const cols = block.columns
     const wrap = h('div', { class: `pld-flowtable is-${style.borders}`, style: { fontSize: `${(style.size ?? layout.page.defaults.size) * PT_PX * this.store.zoom}px`, borderColor: style.borderColor } })
-    const grid = h('div', { class: 'pld-flowtable-grid', style: { gridTemplateColumns: cols.map((c) => (typeof c.width === 'number' ? this.px(c.width) : c.width === 'auto' ? 'auto' : 'minmax(0, 1fr)')).join(' ') } })
+    const grid = h('div', { class: 'pld-flowtable-grid', style: { gridTemplateColumns: fitColumnWidths(cols, availMm).map((w) => (typeof w === 'number' ? this.px(w) : w === 'auto' ? 'auto' : 'minmax(0, 1fr)')).join(' ') } })
     const cell = (content: string, c: (typeof cols)[number], extra: Partial<CSSStyleDeclaration> = {}, cls = '') => {
       const el = h('div', { class: `pld-flowcell ${cls}`, style: { textAlign: c.align, borderColor: style.borderColor } }, content)
       Object.assign(el.style, extra)

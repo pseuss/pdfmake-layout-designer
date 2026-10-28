@@ -364,7 +364,7 @@
     @apply pointer-events-auto absolute -top-[18px] -left-px cursor-move rounded-t-[3px] bg-(--pld-primary) px-1.5 py-px text-[11px] whitespace-nowrap text-(color:--pld-on-primary);
   }
   .pld-cbox-inner {
-    @apply absolute inset-0 flex flex-col gap-[3px] overflow-hidden p-0.5;
+    @apply absolute inset-0 flex flex-col gap-[3px] overflow-hidden;
   }
   .pld-flowcard {
     @apply pointer-events-auto relative min-w-0 flex-none cursor-pointer overflow-hidden rounded-[3px] border border-zinc-300 bg-white/90 text-[11px] text-zinc-600;
