@@ -50,6 +50,7 @@ export default function Page() {
         <button data-testid="save" onClick={save}>Speichern</button>
         <button data-testid="pdf" onClick={pdf}>PDF erzeugen (Server)</button>
         <span data-testid="status">{status}</span>
+        <a href="/generator" style={{ marginLeft: 'auto' }}>Beispiel: Rechnungen &amp; Serienbriefe →</a>
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         {layout && <LayoutDesigner value={layout} onChange={onChange} placeholders={catalog as PlaceholderCatalog} sampleData={sampleData} fonts={fontFiles('/fonts')} />}

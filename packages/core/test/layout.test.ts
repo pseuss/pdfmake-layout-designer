@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createDefaultLayout, pageNumberElement, createEmptyLayout, LayoutError, migrateLayout, parseLayout, pruneAssets, toBlocks } from '@pdf-layouter/core'
+import { ADDRESS_PRESETS, createDefaultLayout, pageNumberElement, createEmptyLayout, LayoutError, migrateLayout, parseLayout, pruneAssets, toBlocks } from '@pdf-layouter/core'
 
 describe('parseLayout', () => {
   it('fills defaults for a minimal layout', () => {
@@ -124,7 +124,7 @@ describe('page number element', () => {
   it('a new default layout has "Seite {{page}} von {{pages}}" as an ordinary, editable text element below the content box', () => {
     const layout = createDefaultLayout()
     expect(layout.static).toHaveLength(1)
-    expect(layout.static[0]).toMatchObject({ id: 'pagenumber', type: 'text', content: 'Seite {{page}} von {{pages}}', align: 'right', pages: 'all', x: 25, w: 165, y: 270.5 })
+    expect(layout.static[0]).toMatchObject({ id: 'pagenumber', type: 'text', content: 'Seite {{page}} von {{pages}}', align: 'right', pages: 'all', x: 20, w: 170, y: 270.5 })
     expect(createEmptyLayout().static).toEqual([]) // an empty layout stays empty
     expect(createDefaultLayout({ static: [] }).static).toEqual([]) // explicit elements win
   })
@@ -141,5 +141,15 @@ describe('page number element', () => {
     expect(migrated.static[1]).toMatchObject({ type: 'text', content: 'Blatt {{page}}/{{pages}}', align: 'center', size: 9, font: 'Roboto', y: 270.5 })
     expect(parseLayout({ schemaVersion: 1, page: { footer: { content: '' } } }).static).toEqual([]) // an empty footer vanishes
     expect(parseLayout(migrated)).toEqual(migrated) // idempotent
+  })
+})
+
+describe('default content box', () => {
+  it('starts at the left edge of the DIN 5008 address windows and is as wide as the page allows', () => {
+    const { contentBox } = createDefaultLayout().page
+    expect(contentBox.first.left).toBe(ADDRESS_PRESETS['DIN5008-A'].x)
+    expect(contentBox.first.left).toBe(ADDRESS_PRESETS['DIN5008-B'].x)
+    expect(contentBox.follow.left).toBe(contentBox.first.left)
+    expect(210 - contentBox.first.left - contentBox.first.right).toBe(170)
   })
 })

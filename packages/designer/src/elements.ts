@@ -5,11 +5,11 @@ import type { PlaceholderField, PlaceholderList } from './warnings'
 type ElementOf<T extends StaticElement['type']> = Extract<StaticElement, { type: T }>
 
 export function newText(id: string): ElementOf<'text'> {
-  return { id, type: 'text', pages: 'all', x: 25, y: 60, w: 80, content: 'Text', align: 'left' }
+  return { id, type: 'text', pages: 'all', x: 20, y: 60, w: 80, content: 'Text', align: 'left' }
 }
 
 export function newRect(id: string): ElementOf<'rect'> {
-  return { id, type: 'rect', pages: 'all', x: 25, y: 60, w: 60, h: 20, fill: '#E5ECF6', radius: 0 }
+  return { id, type: 'rect', pages: 'all', x: 20, y: 60, w: 60, h: 20, fill: '#E5ECF6', radius: 0 }
 }
 
 export function newLine(id: string): ElementOf<'line'> {
@@ -23,7 +23,7 @@ export function newAddress(id: string, t: Translator): ElementOf<'address'> {
 /** A new image is at most 45 mm wide and keeps 25 mm free on each side of the page. */
 export function newImage(id: string, asset: string, pxW: number, pxH: number, pageWidthMm: number): ElementOf<'image'> {
   const w = Math.min(45, pageWidthMm - 50)
-  return { id, type: 'image', pages: 'all', asset, x: 25, y: 20, w, h: Math.max(1, Math.round((w * pxH) / pxW * 100) / 100) }
+  return { id, type: 'image', pages: 'all', asset, x: 20, y: 20, w, h: Math.max(1, Math.round((w * pxH) / pxW * 100) / 100) }
 }
 
 const FORMAT_FOR: Record<NonNullable<PlaceholderField['type']>, string> = { text: 'text', number: 'number', currency: 'currency', date: 'date' }

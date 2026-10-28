@@ -30,6 +30,7 @@ async function pdf() {
       <button data-testid="save" @click="save">Speichern</button>
       <button data-testid="pdf" @click="pdf">PDF erzeugen (Server)</button>
       <span data-testid="status">{{ status }}</span>
+      <NuxtLink to="/generator" style="margin-left: auto">Beispiel: Rechnungen &amp; Serienbriefe →</NuxtLink>
     </div>
     <div style="flex: 1; min-height: 0">
       <ClientOnly>

@@ -236,7 +236,7 @@ export const PageSchema = z.object({
   orientation: z.enum(['portrait', 'landscape']).default('portrait'),
   contentBox: z
     .object({ first: BoxSchema, follow: BoxSchema })
-    .default(() => ({ first: { top: 95, bottom: 30, left: 25, right: 20 }, follow: { top: 30, bottom: 30, left: 25, right: 20 } })),
+    .default(() => ({ first: { top: 95, bottom: 30, left: 20, right: 20 }, follow: { top: 30, bottom: 30, left: 20, right: 20 } })),
   defaults: z
     .object({ font: z.string().default('Roboto'), size: z.number().positive().default(10), color: color.default('#222222') })
     .default(() => ({ font: 'Roboto', size: 10, color: '#222222' })),

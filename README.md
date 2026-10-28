@@ -216,6 +216,22 @@ const fontRegistry = [
 URLs in the browser, file paths in Node. Missing styles fall back to the regular file; an unknown family falls back to the bundled **Roboto** (with a warning).
 The Designer loads the same files through the `FontFace` API so canvas and PDF match.
 
+## Example: invoices and form letters from a database
+
+The same example exists in every demo. Customers and invoices come from a JSON "database", the stored Layouts are loaded, filled and turned into PDFs:
+
+| Demo | Page | PDFs are made |
+| --- | --- | --- |
+| Next.js (`examples/next`, port 5301) | `/generator` | on the server, in API routes |
+| Nuxt (`examples/nuxt`, port 5302) | `/generator` | on the server, in Nitro routes |
+| Vanilla (`pnpm dev`, port 5199) | `/generator.html` | in the browser |
+| Plain Node (`pnpm example:generator`, port 5303) | `/` | on the server, no framework |
+
+* **Invoices:** ten positions per invoice, one PDF per invoice or all invoices in one PDF (`generateBatch`).
+* **Form letters:** one personalised letter per selected customer (Lorem ipsum, stationery, SVG logo and a PNG seal), all in a single PDF.
+
+The rows are in `examples/shared/generator/db.json`, the Layouts are `invoice.layout.json` and `letter.layout.json` next to it (written by `seed.mjs`, but any Layout from the Designer works the same way). `service.mjs` is the Host App's side: read rows, pick the Layout, call `generate` / `generateBatch`.
+
 ## Development
 
 ```bash

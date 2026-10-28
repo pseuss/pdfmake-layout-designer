@@ -14,8 +14,8 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /(production|frameworks)\.spec\.ts/ },
     // the same demo as a production bundle (Rollup, minified): checks that pdfmake and Tiptap bundle correctly
     // the real Next.js and Nuxt example apps (SSR, API routes, load/save round trip)
-    { name: 'next', use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5301' }, testMatch: /frameworks\.spec\.ts/ },
-    { name: 'nuxt', use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5302' }, testMatch: /frameworks\.spec\.ts/ },
+    { name: 'next', use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5301' }, testMatch: /(frameworks|generator)\.spec\.ts/ },
+    { name: 'nuxt', use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5302' }, testMatch: /(frameworks|generator)\.spec\.ts/ },
     { name: 'production', use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5198' }, testMatch: /production\.spec\.ts/ },
   ],
   webServer: [

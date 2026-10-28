@@ -12,7 +12,7 @@ test.describe('page number element ("Seite x von y")', () => {
   test('a new Designer starts with it in place, as an ordinary element', async ({ page }) => {
     await open(page, 'layout=new')
     const el = (await pn(page))!
-    expect(el).toMatchObject({ content: 'Seite {{page}} von {{pages}}', align: 'right', x: 25, w: 165 })
+    expect(el).toMatchObject({ content: 'Seite {{page}} von {{pages}}', align: 'right', x: 20, w: 170 })
     await expect(page.locator('[data-id=pagenumber]')).toContainText('Seite 1 von 1')
     await page.locator('[data-id=pagenumber]').click()
     await expect(page.getByTestId('panel-title')).toContainText('pagenumber')
@@ -26,7 +26,7 @@ test.describe('page number element ("Seite x von y")', () => {
     await page.locator('[data-id=pagenumber]').click()
     await dragBy(page, page.locator('[data-id=pagenumber]'), -10, -20)
     const moved = (await pn(page))!
-    expect(moved.x).toBe(15)
+    expect(moved.x).toBe(10)
     expect(moved.y).toBe(250) // 250.5 snapped to the 2.5 mm grid
 
     await page.getByTestId('content').fill('Blatt ')

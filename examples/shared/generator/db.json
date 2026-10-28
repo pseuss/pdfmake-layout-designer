@@ -1,0 +1,348 @@
+{
+  "customers": [
+    {
+      "id": 1,
+      "salutation": "Frau",
+      "name": "Anna Becker",
+      "street": "Lindenstraße 4",
+      "zip": "10115",
+      "city": "Berlin"
+    },
+    {
+      "id": 2,
+      "salutation": "Herr",
+      "name": "Jonas Krüger",
+      "street": "Hafenweg 12",
+      "zip": "20457",
+      "city": "Hamburg"
+    },
+    {
+      "id": 3,
+      "salutation": "Frau",
+      "name": "Mia Hoffmann",
+      "street": "Schlossallee 7",
+      "zip": "80331",
+      "city": "München"
+    },
+    {
+      "id": 4,
+      "salutation": "Herr",
+      "name": "Lukas Schäfer",
+      "street": "Domplatz 3",
+      "zip": "50667",
+      "city": "Köln"
+    },
+    {
+      "id": 5,
+      "salutation": "Frau",
+      "name": "Emilia Wagner",
+      "street": "Königstraße 21",
+      "zip": "70173",
+      "city": "Stuttgart"
+    },
+    {
+      "id": 6,
+      "salutation": "Herr",
+      "name": "Noah Fischer",
+      "street": "Kastanienallee 9",
+      "zip": "04109",
+      "city": "Leipzig"
+    },
+    {
+      "id": 7,
+      "salutation": "Frau",
+      "name": "Hannah Weber",
+      "street": "Rheinufer 15",
+      "zip": "40213",
+      "city": "Düsseldorf"
+    },
+    {
+      "id": 8,
+      "salutation": "Herr",
+      "name": "Elias Schulz",
+      "street": "Bahnhofstraße 2",
+      "zip": "60311",
+      "city": "Frankfurt am Main"
+    },
+    {
+      "id": 9,
+      "salutation": "Frau",
+      "name": "Sophia Richter",
+      "street": "Elbchaussee 88",
+      "zip": "01067",
+      "city": "Dresden"
+    },
+    {
+      "id": 10,
+      "salutation": "Herr",
+      "name": "Finn Neumann",
+      "street": "Marktplatz 1",
+      "zip": "90402",
+      "city": "Nürnberg"
+    },
+    {
+      "id": 11,
+      "salutation": "Frau",
+      "name": "Lea Zimmermann",
+      "street": "Wiesenweg 6",
+      "zip": "28195",
+      "city": "Bremen"
+    },
+    {
+      "id": 12,
+      "salutation": "Herr",
+      "name": "Paul Braun",
+      "street": "Gartenstraße 30",
+      "zip": "30159",
+      "city": "Hannover"
+    }
+  ],
+  "invoices": [
+    {
+      "id": 1,
+      "number": "RE-2026-0101",
+      "customerId": 1,
+      "date": "2026-10-21",
+      "due": "2026-11-04",
+      "items": [
+        {
+          "pos": 1,
+          "text": "Beratung (Phase A)",
+          "qty": 2.5,
+          "price": 95,
+          "total": 237.5
+        },
+        {
+          "pos": 2,
+          "text": "Konzeption (Phase A)",
+          "qty": 3,
+          "price": 110,
+          "total": 330
+        },
+        {
+          "pos": 3,
+          "text": "Entwicklung (Phase A)",
+          "qty": 4.5,
+          "price": 120,
+          "total": 540
+        },
+        {
+          "pos": 4,
+          "text": "Qualitätssicherung (Phase A)",
+          "qty": 5,
+          "price": 85,
+          "total": 425
+        },
+        {
+          "pos": 5,
+          "text": "Projektleitung (Phase A)",
+          "qty": 6.5,
+          "price": 105,
+          "total": 682.5
+        },
+        {
+          "pos": 6,
+          "text": "Schulung (Phase A)",
+          "qty": 1,
+          "price": 90,
+          "total": 90
+        },
+        {
+          "pos": 7,
+          "text": "Wartung (Phase A)",
+          "qty": 2.5,
+          "price": 70,
+          "total": 175
+        },
+        {
+          "pos": 8,
+          "text": "Übersetzung (Phase A)",
+          "qty": 3,
+          "price": 60,
+          "total": 180
+        },
+        {
+          "pos": 9,
+          "text": "Dokumentation (Phase A)",
+          "qty": 4.5,
+          "price": 80,
+          "total": 360
+        },
+        {
+          "pos": 10,
+          "text": "Support (Phase A)",
+          "qty": 5,
+          "price": 65,
+          "total": 325
+        }
+      ],
+      "net": 3345,
+      "vat": 635.55,
+      "gross": 3980.55
+    },
+    {
+      "id": 2,
+      "number": "RE-2026-0102",
+      "customerId": 2,
+      "date": "2026-10-22",
+      "due": "2026-11-05",
+      "items": [
+        {
+          "pos": 1,
+          "text": "Beratung (Phase B)",
+          "qty": 3,
+          "price": 95,
+          "total": 285
+        },
+        {
+          "pos": 2,
+          "text": "Konzeption (Phase B)",
+          "qty": 4.5,
+          "price": 110,
+          "total": 495
+        },
+        {
+          "pos": 3,
+          "text": "Entwicklung (Phase B)",
+          "qty": 5,
+          "price": 120,
+          "total": 600
+        },
+        {
+          "pos": 4,
+          "text": "Qualitätssicherung (Phase B)",
+          "qty": 6.5,
+          "price": 85,
+          "total": 552.5
+        },
+        {
+          "pos": 5,
+          "text": "Projektleitung (Phase B)",
+          "qty": 1,
+          "price": 105,
+          "total": 105
+        },
+        {
+          "pos": 6,
+          "text": "Schulung (Phase B)",
+          "qty": 2.5,
+          "price": 90,
+          "total": 225
+        },
+        {
+          "pos": 7,
+          "text": "Wartung (Phase B)",
+          "qty": 3,
+          "price": 70,
+          "total": 210
+        },
+        {
+          "pos": 8,
+          "text": "Übersetzung (Phase B)",
+          "qty": 4.5,
+          "price": 60,
+          "total": 270
+        },
+        {
+          "pos": 9,
+          "text": "Dokumentation (Phase B)",
+          "qty": 5,
+          "price": 80,
+          "total": 400
+        },
+        {
+          "pos": 10,
+          "text": "Support (Phase B)",
+          "qty": 6.5,
+          "price": 65,
+          "total": 422.5
+        }
+      ],
+      "net": 3565,
+      "vat": 677.35,
+      "gross": 4242.35
+    },
+    {
+      "id": 3,
+      "number": "RE-2026-0103",
+      "customerId": 3,
+      "date": "2026-10-23",
+      "due": "2026-11-06",
+      "items": [
+        {
+          "pos": 1,
+          "text": "Beratung (Phase C)",
+          "qty": 4.5,
+          "price": 95,
+          "total": 427.5
+        },
+        {
+          "pos": 2,
+          "text": "Konzeption (Phase C)",
+          "qty": 5,
+          "price": 110,
+          "total": 550
+        },
+        {
+          "pos": 3,
+          "text": "Entwicklung (Phase C)",
+          "qty": 6.5,
+          "price": 120,
+          "total": 780
+        },
+        {
+          "pos": 4,
+          "text": "Qualitätssicherung (Phase C)",
+          "qty": 1,
+          "price": 85,
+          "total": 85
+        },
+        {
+          "pos": 5,
+          "text": "Projektleitung (Phase C)",
+          "qty": 2.5,
+          "price": 105,
+          "total": 262.5
+        },
+        {
+          "pos": 6,
+          "text": "Schulung (Phase C)",
+          "qty": 3,
+          "price": 90,
+          "total": 270
+        },
+        {
+          "pos": 7,
+          "text": "Wartung (Phase C)",
+          "qty": 4.5,
+          "price": 70,
+          "total": 315
+        },
+        {
+          "pos": 8,
+          "text": "Übersetzung (Phase C)",
+          "qty": 5,
+          "price": 60,
+          "total": 300
+        },
+        {
+          "pos": 9,
+          "text": "Dokumentation (Phase C)",
+          "qty": 6.5,
+          "price": 80,
+          "total": 520
+        },
+        {
+          "pos": 10,
+          "text": "Support (Phase C)",
+          "qty": 1,
+          "price": 65,
+          "total": 65
+        }
+      ],
+      "net": 3575,
+      "vat": 679.25,
+      "gross": 4254.25
+    }
+  ]
+}

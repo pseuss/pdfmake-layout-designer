@@ -13,5 +13,5 @@ export default defineConfig({
   },
   server: { host: true, fs: { allow: [src('../..')] }, port: 5199, strictPort: true },
   preview: { host: true },
-  build: { target: 'es2022' },
+  build: { target: 'es2022', rollupOptions: { input: { main: src('./index.html'), generator: src('./generator.html') } } },
 })
