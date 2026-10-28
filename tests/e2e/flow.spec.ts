@@ -308,4 +308,27 @@ test.describe('placeholder picker (A5)', () => {
     await page.getByTestId('add-flow-text').click()
     await expect(page.getByTestId('same-row')).toBeDisabled()
   })
+
+  test('blocks in a row never leave the Content Box; two "*" share it equally, "*" takes the rest', async ({ page }) => {
+    await open(page, 'layout=empty')
+    for (const t of ['A'.repeat(200), 'B'.repeat(200)]) {
+      await page.getByTestId('add-flow-text').click()
+      await page.locator('.ProseMirror').click()
+      await page.keyboard.type(t)
+    }
+    await page.getByTestId('same-row').check()
+    const box = (await page.getByTestId('content-box').boundingBox())!
+    const a = (await page.getByTestId('flowcard-0').boundingBox())!
+    const b = (await page.getByTestId('flowcard-1').boundingBox())!
+    expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width + 1)
+    expect(Math.abs(a.width - b.width)).toBeLessThan(2)
+
+    await page.getByTestId('flowcard-0').click()
+    await page.getByTestId('block-width').fill('50')
+    const a2 = (await page.getByTestId('flowcard-0').boundingBox())!
+    const b2 = (await page.getByTestId('flowcard-1').boundingBox())!
+    expect(b2.x + b2.width).toBeLessThanOrEqual(box.x + box.width + 1)
+    expect(a2.width).toBeLessThan(b2.width)
+    expect(a2.width + b2.width).toBeGreaterThan(box.width - 40)
+  })
 })

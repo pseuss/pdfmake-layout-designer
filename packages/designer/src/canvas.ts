@@ -355,7 +355,7 @@ export class Canvas {
       else rows.push([index])
     })
     for (const row of rows) {
-      const cards = row.map((index) => this.renderFlowCard(layout, layout.flow[index]!, index))
+      const cards = row.map((index) => this.renderFlowCard(layout, layout.flow[index]!, index, row.length > 1))
       if (row.length === 1) inner.append(cards[0]!)
       else inner.append(h('div', { class: 'pld-flowrow', 'data-testid': `flowrow-${row[0]}`, style: { gap: this.px(ROW_GAP_MM) } }, ...cards))
     }
@@ -365,7 +365,7 @@ export class Canvas {
     return box
   }
 
-  private renderFlowCard(layout: Layout, block: FlowBlock, index: number): HTMLElement {
+  private renderFlowCard(layout: Layout, block: FlowBlock, index: number, shared: boolean): HTMLElement {
     const selected = this.store.selection.kind === 'flow' && this.store.selection.index === index
     const fmt = this.formatValue(layout)
     const font = cssFontFamily(('font' in block && block.font) || layout.page.defaults.font)
@@ -379,9 +379,8 @@ export class Canvas {
     else if (block.type === 'dynamicSections') card.style.height = this.px(FLOW_HEIGHT_MM.dynamicSections)
     // a width in millimetres is true to scale, '*' shares what is left of the row
     const width = 'width' in block ? block.width : undefined
-    const inRow = 'sameRow' in block && !!block.sameRow
-    if (typeof width === 'number' && (inRow || block.type === 'totals')) Object.assign(card.style, { width: this.px(width), flex: 'none' })
-    else if ('width' in block || inRow) card.style.flex = '1 1 0'
+    if (typeof width === 'number' && (shared || block.type === 'totals')) Object.assign(card.style, { width: this.px(width), flex: 'none', maxWidth: '100%' })
+    else if (shared) card.style.flex = '1 1 0'
 
     const body = h('div', { class: 'pld-flowbody', style: { fontFamily: font, fontSize: pt(layout.page.defaults.size), color: layout.page.defaults.color } })
     const text = (template: string, into: HTMLElement) => {

@@ -377,7 +377,7 @@
     }
   }
   .pld-flowrow {
-    @apply flex flex-none items-stretch;
+    @apply flex w-full max-w-full min-w-0 flex-none items-stretch;
   }
   .pld-flowcard-label {
     @apply pointer-events-none absolute top-0 right-0 z-1 max-w-full truncate rounded-bl-[3px] bg-zinc-100/90 px-1 text-[10px] leading-4 text-zinc-500;
