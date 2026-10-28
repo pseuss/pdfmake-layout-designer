@@ -105,3 +105,25 @@ describe('evaluateCondition', () => {
     expect(evaluateCondition(undefined, data)).toBe(true)
   })
 })
+
+describe('evaluateCondition: combinations and comparisons', () => {
+  const data = { land: 'DE', betrag: 120.5, text: '7,5', leer: '', liste: [1], kunde: { vip: true } }
+  it('combines with all, any and not, nested', () => {
+    const de = { path: 'land', op: 'equals' as const, value: 'DE' }
+    const big = { path: 'betrag', op: 'gt' as const, value: 100 }
+    expect(evaluateCondition({ all: [de, big] }, data)).toBe(true)
+    expect(evaluateCondition({ all: [de, { path: 'betrag', op: 'lt', value: 100 }] }, data)).toBe(false)
+    expect(evaluateCondition({ any: [{ path: 'land', op: 'equals', value: 'AT' }, big] }, data)).toBe(true)
+    expect(evaluateCondition({ not: de }, data)).toBe(false)
+    expect(evaluateCondition({ not: { any: [{ path: 'x', op: 'exists' }, { path: 'leer', op: 'exists' }] } }, data)).toBe(true)
+    expect(evaluateCondition({ all: [{ any: [de] }, { not: { path: 'kunde.vip', op: 'empty' } }] }, data)).toBe(true)
+  })
+  it('compares numbers (also text numbers with a decimal comma) and is false for non-numbers', () => {
+    expect(evaluateCondition({ path: 'betrag', op: 'gte', value: 120.5 }, data)).toBe(true)
+    expect(evaluateCondition({ path: 'betrag', op: 'lte', value: 120 }, data)).toBe(false)
+    expect(evaluateCondition({ path: 'text', op: 'gt', value: 7 }, data)).toBe(true)
+    expect(evaluateCondition({ path: 'land', op: 'gt', value: 1 }, data)).toBe(false)
+    expect(evaluateCondition({ path: 'missing', op: 'lt', value: 1 }, data)).toBe(false)
+    expect(evaluateCondition({ path: 'leer', op: 'lt', value: 1 }, data)).toBe(false)
+  })
+})

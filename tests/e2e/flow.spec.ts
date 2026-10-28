@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test'
+import { generate } from '@pdf-layouter/core'
+import { readPdf } from '../../packages/core/test/pdf'
 import { expectNoErrors, layout, open } from './helpers'
 
 test.describe('flow blocks (R6–R9)', () => {
@@ -179,6 +181,31 @@ test.describe('rich text blocks (R9, S1)', () => {
     await page.keyboard.type(' Ihr Team')
     const block = (await layout(page)).flow[0] as any
     expect(block.content[0].runs[0].text).toBe('Sehr geehrte Damen und Herren, Ihr Team')
+  })
+
+  test('colour, size and alignment of rich text reach the layout and the PDF', async ({ page }) => {
+    await open(page, 'layout=empty')
+    await page.getByTestId('add-flow-text').click()
+    const editor = page.locator('.ProseMirror')
+    await editor.click()
+    await page.keyboard.press('Control+a')
+    await page.keyboard.type('Farbig und groß')
+    await page.keyboard.press('Control+a')
+    await page.getByTestId('rich-color').fill('#ff0000')
+    await page.getByTestId('rich-size').fill('20')
+    await page.getByTestId('rich-size').press('Enter')
+    await page.getByTestId('rich-size').blur()
+    await page.getByTestId('rich-align-right').click()
+    const block = (await layout(page)).flow[0] as any
+    expect(block.content[0]).toEqual({ type: 'paragraph', align: 'right', runs: [{ text: 'Farbig und groß', color: '#ff0000', size: 20 }] })
+    await expect(page.getByTestId('rich-align-right')).toHaveAttribute('aria-pressed', 'true')
+
+    const info = await readPdf(await generate(await layout(page), {}))
+    const item = info.pages[0]!.items.find((i) => i.str.includes('Farbig'))!
+    expect(info.pages[0]!.colors).toContain('#ff0000')
+    expect(item.x).toBeGreaterThan(250) // right-aligned: starts far right of the left margin
+    await page.getByTestId('rich-no-color').click()
+    expect(((await layout(page)).flow[0] as any).content[0].runs[0].color).toBeUndefined()
   })
 
   test('numbered list button', async ({ page }) => {

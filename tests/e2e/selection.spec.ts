@@ -139,3 +139,66 @@ test.describe('snapping guides', () => {
     expect(b.x + b.w).toBe(61)
   })
 })
+
+test.describe('rubber-band selection', () => {
+  const drag = async (page: Page, from: { x: number; y: number }, to: { x: number; y: number }, modifier?: 'Shift') => {
+    const box = (await page.getByTestId('page').boundingBox())!
+    const k = await scale(page)
+    if (modifier) await page.keyboard.down(modifier)
+    await page.mouse.move(box.x + from.x * k, box.y + from.y * k)
+    await page.mouse.down()
+    await page.mouse.move(box.x + ((from.x + to.x) / 2) * k, box.y + ((from.y + to.y) / 2) * k, { steps: 3 })
+    await page.mouse.move(box.x + to.x * k, box.y + to.y * k, { steps: 3 })
+    await expect(page.getByTestId('marquee')).toBeVisible()
+    await page.mouse.up()
+    if (modifier) await page.keyboard.up(modifier)
+  }
+
+  test('dragging over empty space selects every element it touches', async ({ page }) => {
+    await open(page, 'layout=empty')
+    await rects(page) // a (61..101 x 100..120), b (20..50 x 150..170), c (120..141 x 60..80), address (fixed)
+    await drag(page, { x: 5, y: 90 }, { x: 110, y: 175 }) // touches a and b only
+    await expect(page.getByTestId('panel-title')).toHaveText('2 Elemente ausgewählt')
+    await expect(page.locator('.pld-el.is-selected')).toHaveCount(2)
+    await expect(page.locator('.pld-marquee')).toHaveCount(0)
+    await drag(page, { x: 5, y: 4 }, { x: 8, y: 8 }) // empty corner: nothing hit -> deselect
+    await expect(page.getByText('Wähle ein Element')).toBeVisible()
+    await drag(page, { x: 115, y: 55 }, { x: 160, y: 85 })
+    await expect(page.getByTestId('panel-title')).toContainText('c') // a single hit is a normal selection
+  })
+
+  test('shift adds to the current selection; the fixed address field is never part of it', async ({ page }) => {
+    await open(page, 'layout=empty')
+    await rects(page)
+    await page.locator('[data-id=c]').click()
+    await drag(page, { x: 5, y: 145 }, { x: 55, y: 175 }, 'Shift') // b
+    await expect(page.getByTestId('panel-title')).toHaveText('2 Elemente ausgewählt')
+    await drag(page, { x: 15, y: 15 }, { x: 100, y: 120 }) // covers the address window (20..105 x 45..90) and a
+    expect((await page.locator('.pld-el.is-selected').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.id)))).toEqual(['a'])
+  })
+
+  test('with a page-sized background, dragging from it selects elements and a click still selects the background', async ({ page }) => {
+    await open(page, 'layout=empty')
+    await page.evaluate(() =>
+      (window as any).__app.designer.setLayout({
+        schemaVersion: 1,
+        static: [
+          { id: 'bg', type: 'rect', x: 0, y: 0, w: 210, h: 297, fill: '#f4f4f4' },
+          { id: 'a', type: 'rect', x: 61, y: 100, w: 40, h: 20, fill: '#cccccc' },
+          { id: 'b', type: 'rect', x: 20, y: 150, w: 30, h: 20, fill: '#aaccee' },
+        ],
+      }),
+    )
+    await drag(page, { x: 10, y: 95 }, { x: 110, y: 175 })
+    await expect(page.getByTestId('panel-title')).toHaveText('2 Elemente ausgewählt')
+    const ids = await page.locator('.pld-el.is-selected').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.id))
+    expect(ids.sort()).toEqual(['a', 'b']) // the background is not swept up
+    const k = await scale(page)
+    const box = (await page.getByTestId('page').boundingBox())!
+    await page.mouse.click(box.x + 150 * k, box.y + 250 * k)
+    await expect(page.getByTestId('panel-title')).toContainText('bg')
+    const before = ((await layout(page)).static[0] as { x: number }).x
+    await dragBy(page, page.locator('[data-id=bg]'), 10, 0) // selected now: dragging moves it
+    expect(((await layout(page)).static[0] as { x: number }).x).toBe(before + 10)
+  })
+})

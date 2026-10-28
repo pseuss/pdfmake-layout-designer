@@ -60,6 +60,21 @@ describe('parseLayout', () => {
   })
 })
 
+describe('visibleWhen schema', () => {
+  const rect = { id: 'r', type: 'rect', x: 0, y: 0, w: 1, h: 1 }
+  it('accepts leaves, nested groups and not, and keeps them intact', () => {
+    const visibleWhen = { all: [{ path: 'a', op: 'gt', value: 1 }, { any: [{ path: 'b' }, { not: { path: 'c', op: 'equals', value: 'x' } }] }] }
+    const layout = parseLayout({ schemaVersion: 1, static: [{ ...rect, visibleWhen }], flow: [{ type: 'pageBreak', visibleWhen: { path: 'p' } }] })
+    expect((layout.static[0] as { visibleWhen: unknown }).visibleWhen).toEqual({ all: [{ path: 'a', op: 'gt', value: 1 }, { any: [{ path: 'b', op: 'exists' }, { not: { path: 'c', op: 'equals', value: 'x' } }] }] })
+    expect(parseLayout(layout)).toEqual(layout)
+  })
+  it('rejects empty groups, missing paths and unknown operators', () => {
+    for (const visibleWhen of [{ all: [] }, { path: '' }, { path: 'a', op: 'matches' }, { any: [{ nope: 1 }] }]) {
+      expect(() => parseLayout({ schemaVersion: 1, static: [{ ...rect, visibleWhen }] })).toThrow(/Invalid layout/)
+    }
+  })
+})
+
 describe('rich text normalisation', () => {
   it('accepts a string, a run array or blocks', () => {
     expect(toBlocks('a\n\nb')).toEqual([

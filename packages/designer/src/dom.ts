@@ -9,7 +9,13 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<s
     else if (key === 'style' && typeof value === 'object') Object.assign(el.style, value)
     else if (/^on[A-Z]/.test(key) && typeof value === 'function') el.addEventListener(key.slice(2).toLowerCase(), value as EventListener)
     else if (key.startsWith('data-') || key.startsWith('aria-') || key === 'role') el.setAttribute(key, String(value))
-    else if (key in el) (el as unknown as Record<string, unknown>)[key] = value
+    else if (key in el) {
+      try {
+        ;(el as unknown as Record<string, unknown>)[key] = value
+      } catch {
+        el.setAttribute(key, String(value)) // read-only DOM properties such as input.list
+      }
+    }
     else el.setAttribute(key, String(value))
   }
   for (const child of children) {

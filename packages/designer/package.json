@@ -6,8 +6,24 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "require": "./dist/index.cjs" } },
-  "files": ["dist"],
-  "scripts": { "build": "vite build && tsc -p tsconfig.build.json" },
-  "dependencies": { "@pdf-layouter/core": "workspace:*", "@tiptap/core": "^3.32.0", "@tiptap/starter-kit": "^3.32.0" }
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@pdf-layouter/core": "workspace:*",
+    "@tiptap/core": "^3.32.0",
+    "@tiptap/extension-text-align": "^3.32.0",
+    "@tiptap/extension-text-style": "^3.32.0",
+    "@tiptap/starter-kit": "^3.32.0"
+  }
 }

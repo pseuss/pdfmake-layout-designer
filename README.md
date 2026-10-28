@@ -97,8 +97,8 @@ async function save() { await $fetch('/api/layout', { method: 'PUT', body: layou
 ## Designer features
 
 Canvas with zoom, grid and snap, **smart guides** (edges and centres of other elements, the page and the content box; hold Alt to disable), drag/resize, **multi-select**
-(shift/ctrl-click, Ctrl+A; move, align, duplicate, delete together), **undo/redo** (Ctrl+Z, Ctrl+Shift+Z / Ctrl+Y, 100 steps, `designer.undo()` / `redo()`),
-property panel, layer order, flow list with drag-to-reorder, rich text, placeholder picker, live preview, image optimisation, warnings.
+(shift/ctrl-click, Ctrl+A or a rubber-band rectangle dragged on empty space or on the stationery; move, align, duplicate, delete together), **undo/redo** (Ctrl+Z, Ctrl+Shift+Z / Ctrl+Y, 100 steps, `designer.undo()` / `redo()`),
+property panel, layer order, flow list with drag-to-reorder, rich text with colour, size and alignment, placeholder picker, live preview, image optimisation, warnings.
 
 ## Fonts per element
 
@@ -107,8 +107,15 @@ The document font (`page.defaults.font`) is the default. Every text box, address
 
 ## Conditional elements (`visibleWhen`)
 
-Any static element or flow block can carry `"visibleWhen": { "path": "kunde.zusatz", "op": "exists" }` (`exists`, `empty`, `equals`, `notEquals` with `value`).
-It is evaluated per Record, so in a batch each letter shows or hides it on its own. There is no expression language (ADR 0003).
+Any static element or flow block can carry `"visibleWhen": { "path": "kunde.zusatz", "op": "exists" }`.
+Operators: `exists`, `empty`, `equals`, `notEquals` (compared as text) and `gt`, `gte`, `lt`, `lte` (compared as numbers; `"7,5"` counts as 7.5, non-numbers are false).
+Comparisons combine with `all` (AND), `any` (OR) and `not`, nested as deep as needed:
+
+```json
+{ "visibleWhen": { "all": [ { "path": "betrag", "op": "gt", "value": 100 }, { "any": [ { "path": "vip" }, { "not": { "path": "rabatt" } } ] } ] } }
+```
+
+The Designer has an expression builder for this. It is evaluated per Record, so in a batch each letter shows or hides it on its own. It is still a closed set of operators, not a scripting language (ADR 0003).
 
 ## Layout JSON
 
@@ -189,7 +196,7 @@ Requirements coverage: [`docs/coverage.md`](docs/coverage.md). Specification: [`
 
 ## Known limits
 
-* The rich-text editor edits bold, italic, underline and lists; run colour/size and paragraph alignment set in JSON are dropped when the block is edited in the Designer.
+* The rich-text editor edits bold, italic, underline, text colour, font size (pt), paragraph alignment and lists. A font family is set per block, not per word.
 * `strategy: 'merge'` cannot combine with `pdfa` or `attachments` (pdf-lib joins plain PDFs).
 * The live preview updates while the preview tab is open.
 * pdfmake has one margin set per document: see "Content box" above.

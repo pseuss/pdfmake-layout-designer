@@ -31,6 +31,7 @@ export const CSS = `
 .pld-el-address .pld-tag{position:absolute;right:2px;top:1px;font:10px var(--pld-font);color:var(--pld-muted)}
 .pld-el-image img,.pld-el-image svg{width:100%;height:100%;display:block;pointer-events:none}
 .pld-el-line svg{width:100%;height:100%;overflow:visible;display:block;pointer-events:none}
+.pld-marquee{position:absolute;border:1px solid var(--pld-accent);background:rgba(37,99,235,.12);pointer-events:none;z-index:7}
 .pld-guide{position:absolute;background:#e11d8c;pointer-events:none;z-index:6}
 .pld-handle{position:absolute;width:10px;height:10px;background:#fff;border:2px solid var(--pld-accent);border-radius:2px;z-index:5}
 .pld-handle[data-handle=nw]{left:-6px;top:-6px;cursor:nwse-resize}.pld-handle[data-handle=n]{left:calc(50% - 5px);top:-6px;cursor:ns-resize}
@@ -59,6 +60,8 @@ export const CSS = `
 .pld-group{border:1px solid var(--pld-border);border-radius:var(--pld-radius);padding:8px;display:flex;flex-direction:column;gap:6px}
 .pld-row{display:flex;gap:6px;align-items:center}
 .pld-row>*{min-width:0}
+.pld-check{display:inline-flex;align-items:center;gap:4px;flex:none;white-space:nowrap}
+.pld-check input{width:auto;min-width:0;margin:0}
 .pld-list{display:flex;flex-direction:column;gap:3px}
 .pld-list-item{display:flex;align-items:center;gap:4px;border:1px solid var(--pld-border);border-radius:4px;padding:3px 6px;background:var(--pld-surface);cursor:pointer}
 .pld-list-item.is-selected{border-color:var(--pld-accent);background:var(--pld-accent-soft)}

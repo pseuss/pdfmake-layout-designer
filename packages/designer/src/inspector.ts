@@ -1,4 +1,4 @@
-import { PAGE_SIZES_MM, type Column, type Condition, type FlowBlock, type StaticElement } from '@pdf-layouter/core'
+import { PAGE_SIZES_MM, type Column, type Condition, type FlowBlock, type LeafCondition, type StaticElement } from '@pdf-layouter/core'
 import type { FontRegistry } from '@pdf-layouter/core'
 import { alignSelection, deleteSelection, duplicateSelection, moveFlow, moveLayer } from './actions'
 import type { Align } from './geometry'
@@ -111,36 +111,141 @@ export class Inspector {
     return this.select(this.t('prop.font'), options, current ?? '', (v) => onChange(v || undefined), testId)
   }
 
-  /** `visibleWhen` editor: operator, placeholder path and compare value. */
+  /**
+   * `visibleWhen` expression builder: comparisons combined with "all of" (AND), "any of" (OR) and "not", nested as deep as needed.
+   * Edits go to one mutable copy and are emitted as a fresh clone, so inputs that stay alive while typing never edit stale data.
+   */
   private conditionFields(cond: Condition | undefined, onChange: (c: Condition | undefined) => void, rerender: () => void): HTMLElement {
     const T = this.t
-    const ops: [string, string][] = [['', T('cond.always')], ['exists', T('cond.exists')], ['empty', T('cond.empty')], ['equals', T('cond.equals')], ['notEquals', T('cond.notEquals')]]
+    let root: Condition | undefined = cond ? structuredClone(cond) : undefined
+    const commit = () => onChange(root ? structuredClone(root) : undefined)
+    const structural = () => {
+      commit()
+      rerender()
+    }
+    const first = this.store.catalog?.groups[0]
+    const defaultPath = first?.fields[0] ? `${first.key}.${first.fields[0].key}` : 'feld'
+    const newLeaf = (): Condition => ({ path: defaultPath, op: 'exists' })
+    const listId = `pld-paths-${Math.random().toString(36).slice(2, 8)}`
+    const OPS: [LeafCondition['op'], string][] = [['exists', T('cond.exists')], ['empty', T('cond.empty')], ['equals', T('cond.equals')], ['notEquals', T('cond.notEquals')], ['gt', T('cond.gt')], ['gte', T('cond.gte')], ['lt', T('cond.lt')], ['lte', T('cond.lte')]]
     const group = h('div', { class: 'pld-group', 'data-testid': 'visible-when' })
-    group.append(
-      this.select(T('prop.visibleWhen'), ops, cond?.op ?? '', (v) => {
-        const first = this.store.catalog?.groups[0]
-        const fallback = first?.fields[0] ? `${first.key}.${first.fields[0].key}` : 'feld'
-        onChange(v ? { path: cond?.path || fallback, op: v as Condition['op'], value: cond?.value } : undefined)
-        rerender()
-      }, 'cond-op'),
-    )
-    if (cond) {
-      // the inputs below stay alive while the user types, so they must edit the latest condition, not the one of the first render
-      let current: Condition = cond
-      const emit = (next: Condition) => {
-        current = next
-        onChange(next)
+    group.append(h('div', { class: 'pld-section-title' }, T('prop.visibleWhen')))
+
+    const button = (label: string, testId: string, run: () => void, danger = false) =>
+      h('button', { type: 'button', class: `pld-btn pld-btn-sm${danger ? ' is-danger' : ''}`, 'data-testid': testId, onClick: run }, label)
+
+    /** Renders one node; `set` replaces it in its parent, `remove` deletes it from there. */
+    const renderNode = (node: Condition, set: (n: Condition) => void, remove: () => void, depth: number, id: string): HTMLElement => {
+      let negate = false
+      let inner = node
+      while ('not' in inner) {
+        negate = !negate
+        inner = inner.not
       }
-      const listId = `pld-paths-${Math.random().toString(36).slice(2, 8)}`
-      const path = this.text(T('prop.condPath'), cond.path, (v) => v.trim() && emit({ ...current, path: v.trim() }), 'cond-path')
-      const input = path.querySelector('input')!
-      input.setAttribute('list', listId)
-      group.append(
-        path,
-        h('datalist', { id: listId }, ...(this.store.catalog?.groups ?? []).flatMap((g) => g.fields.map((f) => h('option', { value: `${g.key}.${f.key}` })))),
+      const wrap = (n: Condition): Condition => (negate ? { not: n } : n)
+      const negateBox = h('input', { type: 'checkbox', checked: negate, title: T('cond.not'), 'aria-label': T('cond.not'), 'data-testid': `${id}-not` })
+      negateBox.addEventListener('change', () => {
+        set(negateBox.checked ? { not: inner } : inner)
+        structural()
+      })
+      const notLabel = h('label', { class: 'pld-check' }, negateBox, T('cond.not'))
+      const wrapper = h('div', { class: 'pld-group', 'data-testid': id, style: { marginLeft: depth ? '8px' : '0' } })
+
+      if ('all' in inner || 'any' in inner) {
+        const kind = 'all' in inner ? 'all' : 'any'
+        const children = 'all' in inner ? inner.all : inner.any
+        const kindSelect = h('select', { class: 'pld-select', 'data-testid': `${id}-kind` }, h('option', { value: 'all' }, T('cond.all')), h('option', { value: 'any' }, T('cond.any')))
+        kindSelect.value = kind
+        kindSelect.addEventListener('change', () => {
+          set(wrap(kindSelect.value === 'all' ? { all: children } : { any: children }))
+          structural()
+        })
+        wrapper.append(h('div', { class: 'pld-row' }, kindSelect, notLabel, button('×', `${id}-remove`, remove, true)))
+        children.forEach((child, i) =>
+          wrapper.append(
+            renderNode(
+              child,
+              (n) => void (children[i] = n),
+              () => {
+                children.splice(i, 1)
+                if (children.length === 0) remove()
+                else structural()
+              },
+              depth + 1,
+              `${id}-${i}`,
+            ),
+          ),
+        )
+        wrapper.append(
+          h('div', { class: 'pld-row' },
+            button(T('cond.add'), `${id}-add`, () => {
+              children.push(newLeaf())
+              structural()
+            }),
+            button(T('cond.addGroup'), `${id}-add-group`, () => {
+              children.push({ any: [newLeaf()] })
+              structural()
+            }),
+          ),
+        )
+        return wrapper
+      }
+
+      const leaf = inner as LeafCondition
+      const path = h('input', { class: 'pld-input', value: leaf.path, list: listId, placeholder: 'kunde.name', 'aria-label': T('prop.condPath'), 'data-testid': `${id}-path` })
+      path.addEventListener('input', () => {
+        if (!path.value.trim()) return
+        leaf.path = path.value.trim()
+        commit()
+      })
+      const op = h('select', { class: 'pld-select', 'aria-label': T('prop.visibleWhen'), 'data-testid': `${id}-op` })
+      for (const [v, label] of OPS) op.append(h('option', { value: v }, label))
+      op.value = leaf.op
+      op.addEventListener('change', () => {
+        leaf.op = op.value as LeafCondition['op']
+        structural()
+      })
+      wrapper.append(h('div', { class: 'pld-row' }, path, button('×', `${id}-remove`, remove, true)), h('div', { class: 'pld-row' }, op, notLabel))
+      if (!['exists', 'empty'].includes(leaf.op)) {
+        const value = h('input', { class: 'pld-input', value: leaf.value === undefined ? '' : String(leaf.value), placeholder: T('prop.condValue'), 'aria-label': T('prop.condValue'), 'data-testid': `${id}-value` })
+        value.addEventListener('input', () => {
+          leaf.value = value.value
+          commit()
+        })
+        wrapper.append(value)
+      }
+      return wrapper
+    }
+
+    const body = h('div', { class: 'pld-list' })
+    group.append(
+      body,
+      h('datalist', { id: listId }, ...(this.store.catalog?.groups ?? []).flatMap((g) => g.fields.map((f) => h('option', { value: `${g.key}.${f.key}` })))),
+    )
+    if (!root) {
+      group.append(h('span', { class: 'pld-muted', 'data-testid': 'cond-always' }, T('cond.always')), button(T('cond.add'), 'cond-add', () => {
+        root = newLeaf()
+        structural()
+      }))
+    } else {
+      body.append(
+        renderNode(
+          root,
+          (n) => void (root = n),
+          () => {
+            root = undefined
+            structural()
+          },
+          0,
+          'cond',
+        ),
       )
-      if (cond.op === 'equals' || cond.op === 'notEquals') {
-        group.append(this.text(T('prop.condValue'), cond.value === undefined ? '' : String(cond.value), (v) => emit({ ...current, value: v }), 'cond-value'))
+      if (!('all' in root) && !('any' in root)) {
+        // a single comparison can grow into a group without losing what was entered
+        group.append(button(T('cond.addCondition'), 'cond-more', () => {
+          root = { all: [root!, newLeaf()] }
+          structural()
+        }))
       }
     }
     return group

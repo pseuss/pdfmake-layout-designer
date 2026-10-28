@@ -41,12 +41,13 @@ test.describe('visibleWhen', () => {
     await open(page, 'layout=empty')
     await page.getByTestId('add-text').click()
     await page.getByTestId('content').fill('NUR-MIT-NOTIZ')
-    await page.getByTestId('cond-op').selectOption('exists')
+    await page.getByTestId('cond-add').click()
     await page.getByTestId('cond-path').fill('notiz')
     await page.getByTestId('add-flow-text').click()
     await page.locator('.ProseMirror').click()
     await page.keyboard.press('Control+a')
     await page.keyboard.type('NUR-BEI-DE')
+    await page.getByTestId('cond-add').click()
     await page.getByTestId('cond-op').selectOption('equals')
     await page.getByTestId('cond-path').fill('land')
     await page.getByTestId('cond-value').fill('DE')
@@ -63,13 +64,66 @@ test.describe('visibleWhen', () => {
     expect(none).not.toContain('NUR-BEI-DE')
   })
 
-  test('"always" removes the condition again', async ({ page }) => {
+  test('removing the only comparison means "always visible" again', async ({ page }) => {
     await open(page, 'layout=empty')
     await page.getByTestId('add-rect').click()
+    await page.getByTestId('cond-add').click()
     await page.getByTestId('cond-op').selectOption('empty')
-    expect(((await layout(page)).static[0] as { visibleWhen?: unknown }).visibleWhen).toBeTruthy()
-    await page.getByTestId('cond-op').selectOption('')
+    expect(((await layout(page)).static[0] as { visibleWhen?: unknown }).visibleWhen).toEqual({ path: 'kunde.name', op: 'empty' })
+    await page.getByTestId('cond-remove').click()
     expect(((await layout(page)).static[0] as { visibleWhen?: unknown }).visibleWhen).toBeUndefined()
     await expect(page.getByTestId('cond-path')).toHaveCount(0)
+    await expect(page.getByTestId('cond-always')).toBeVisible()
+  })
+
+  test('expression builder: AND, OR, NOT and numeric comparisons, nested, edited without losing input focus', async ({ page }) => {
+    await open(page, 'layout=empty')
+    await page.getByTestId('add-text').click()
+    await page.getByTestId('content').fill('ANGEBOT-HINWEIS')
+    await page.getByTestId('cond-add').click()
+    await page.getByTestId('cond-path').fill('betrag')
+    await page.getByTestId('cond-op').selectOption('gt')
+    await page.getByTestId('cond-value').fill('100')
+    await page.getByTestId('cond-more').click() // -> all of [betrag > 100, <new>]
+    await page.getByTestId('cond-1-path').fill('land')
+    await page.getByTestId('cond-1-op').selectOption('equals')
+    await page.getByTestId('cond-1-value').fill('DE')
+    await page.getByTestId('cond-add-group').click() // -> all of [..., any of [<new>]]
+    await page.getByTestId('cond-2-0-path').fill('vip')
+    await page.getByTestId('cond-2-add').click()
+    await page.getByTestId('cond-2-1-path').fill('rabatt')
+    await page.getByTestId('cond-2-1-not').check() // vip OR NOT rabatt
+
+    const expected = { all: [{ path: 'betrag', op: 'gt', value: '100' }, { path: 'land', op: 'equals', value: 'DE' }, { any: [{ path: 'vip', op: 'exists' }, { not: { path: 'rabatt', op: 'exists' } }] }] }
+    expect(((await layout(page)).static[0] as { visibleWhen: unknown }).visibleWhen).toEqual(expected)
+
+    const l = await layout(page)
+    const shows = async (data: Record<string, unknown>) => (await readPdf(await generate(l, data))).pages[0]!.text.includes('ANGEBOT-HINWEIS')
+    expect(await shows({ betrag: 150, land: 'DE', vip: true, rabatt: 5 })).toBe(true) // vip satisfies the OR
+    expect(await shows({ betrag: 150, land: 'DE', rabatt: '' })).toBe(true) // an empty rabatt satisfies the NOT
+    expect(await shows({ betrag: 150, land: 'DE', rabatt: 5 })).toBe(false) // neither
+    expect(await shows({ betrag: 50, land: 'DE', vip: true })).toBe(false) // amount too small
+    expect(await shows({ betrag: '150,5', land: 'AT', vip: true })).toBe(false) // wrong country
+
+    // switch the inner group to AND, then negate the whole thing
+    await page.getByTestId('cond-2-kind').selectOption('all')
+    await page.getByTestId('cond-not').check()
+    const after = ((await layout(page)).static[0] as { visibleWhen: any }).visibleWhen
+    expect(after).toEqual({ not: { all: [expected.all[0], expected.all[1], { all: expected.all[2]!.any }] } })
+    // remove a child: the group shrinks, an emptied group disappears
+    await page.getByTestId('cond-0-remove').click()
+    expect(((await layout(page)).static[0] as { visibleWhen: any }).visibleWhen.not.all).toHaveLength(2)
+  })
+
+  test('text comparison values are stored as entered and the leaf survives a reload of the panel', async ({ page }) => {
+    await open(page, 'layout=empty')
+    await page.getByTestId('add-rect').click()
+    await page.getByTestId('cond-add').click()
+    await page.getByTestId('cond-op').selectOption('notEquals')
+    await page.getByTestId('cond-value').fill('X Y')
+    await page.getByTestId('add-text').click()
+    await page.getByTestId('layer-rect_1').click()
+    await expect(page.getByTestId('cond-op')).toHaveValue('notEquals')
+    await expect(page.getByTestId('cond-value')).toHaveValue('X Y')
   })
 })

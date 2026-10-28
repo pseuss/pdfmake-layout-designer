@@ -18,6 +18,8 @@ interface Session {
   moved: boolean
   live: (dxMm: number, dyMm: number, e: PointerEvent) => void
   commit: (dxMm: number, dyMm: number, e: PointerEvent) => void
+  /** Called instead of `commit` when the pointer did not move (a plain click). */
+  tap?: () => void
 }
 
 const FLOW_HEIGHT_MM: Record<FlowBlock['type'], number> = { text: 14, table: 40, totals: 20, dynamicSections: 30, pageBreak: 6 }
@@ -34,11 +36,12 @@ export class Canvas {
   ) {
     this.page = h('div', { class: 'pld-page', 'data-testid': 'page' })
     this.stage = h('div', { class: 'pld-stage', tabIndex: 0, 'data-testid': 'stage' }, this.page)
+    // dragging on empty space draws a selection rectangle; a plain click deselects
     this.page.addEventListener('pointerdown', (e) => {
-      if (e.target === this.page || (e.target as HTMLElement).classList.contains('pld-grid')) this.store.select({ kind: 'none' })
+      if (e.button === 0 && (e.target === this.page || (e.target as HTMLElement).classList.contains('pld-grid'))) this.startMarquee(e)
     })
     this.stage.addEventListener('pointerdown', (e) => {
-      if (e.target === this.stage) this.store.select({ kind: 'none' })
+      if (e.button === 0 && e.target === this.stage) this.startMarquee(e)
     })
     this.page.addEventListener('pointermove', (e) => {
       const p = this.pointToMm(e)
@@ -290,6 +293,8 @@ export class Canvas {
       window.removeEventListener('pointercancel', up)
       this.session = undefined
       this.clearGuides()
+      this.page.querySelectorAll('.pld-marquee').forEach((m) => m.remove())
+      if (!s.moved) s.tap?.()
       if (s.moved) s.commit((ev.clientX - s.startX) / this.scale, (ev.clientY - s.startY) / this.scale, ev)
     }
     window.addEventListener('pointermove', move)
@@ -308,6 +313,11 @@ export class Canvas {
       e.preventDefault()
       e.stopPropagation()
       this.store.toggleStatic(el.id)
+      return
+    }
+    if (!handle && this.isBackground(el) && !this.store.selectedStaticIds().includes(el.id)) {
+      // a page-sized background would swallow every drag: dragging over it draws a selection rectangle, a click selects it
+      this.startMarquee(e, el.id)
       return
     }
     const group = this.store.selectedStaticIds()
@@ -379,6 +389,53 @@ export class Canvas {
           if (t.type === 'text') Object.assign(t, { x: r.x, y: r.y, w: r.w })
           else if (t.type === 'image' || t.type === 'rect') Object.assign(t, r)
         }, 'canvas')
+      },
+    })
+  }
+
+  /** Elements covering (nearly) the whole page, such as the stationery. */
+  private isBackground(el: StaticElement): boolean {
+    if (el.type !== 'image' && el.type !== 'rect') return false
+    const page = pageSizeMm(this.store.layout)
+    return el.w >= page.w * 0.9 && el.h >= page.h * 0.9
+  }
+
+  /** Rubber-band selection: selects the movable static elements the rectangle touches (shift/ctrl adds to the selection). */
+  private startMarquee(e: PointerEvent, tapId?: string): void {
+    const additive = e.shiftKey || e.ctrlKey || e.metaKey
+    const origin = this.page.getBoundingClientRect()
+    const startX = e.clientX
+    const startY = e.clientY
+    const box = h('div', { class: 'pld-marquee', 'data-testid': 'marquee' })
+    const area = (ev: PointerEvent) => ({
+      left: Math.min(startX, ev.clientX),
+      top: Math.min(startY, ev.clientY),
+      right: Math.max(startX, ev.clientX),
+      bottom: Math.max(startY, ev.clientY),
+    })
+    this.beginSession(e, {
+      tap: () => {
+        if (tapId) this.store.select({ kind: 'static', id: tapId })
+        else if (!additive) this.store.select({ kind: 'none' })
+      },
+      live: (_dx, _dy, ev) => {
+        const a = area(ev)
+        Object.assign(box.style, { left: `${a.left - origin.left}px`, top: `${a.top - origin.top}px`, width: `${a.right - a.left}px`, height: `${a.bottom - a.top}px` })
+        if (!box.isConnected) this.page.append(box)
+      },
+      commit: (_dx, _dy, ev) => {
+        const a = area(ev)
+        const hits = this.store.layout.static
+          .filter((el) => el.type !== 'address' && !this.isBackground(el))
+          .filter((el) => {
+            const node = this.page.querySelector<HTMLElement>(`[data-id="${CSS.escape(el.id)}"]`)
+            if (!node) return false
+            const r = node.getBoundingClientRect()
+            return r.right >= a.left && r.left <= a.right && r.bottom >= a.top && r.top <= a.bottom
+          })
+          .map((el) => el.id)
+        const ids = additive ? [...new Set([...this.store.selectedStaticIds(), ...hits])] : hits
+        this.store.select(ids.length === 0 ? { kind: 'none' } : ids.length === 1 ? { kind: 'static', id: ids[0]! } : { kind: 'multi', ids })
       },
     })
   }

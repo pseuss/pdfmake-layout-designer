@@ -143,9 +143,27 @@ export function resolvePageTemplate(
     .join('')
 }
 
-/** Evaluates a `visibleWhen` condition against one Record. */
-export function evaluateCondition(condition: { path: string; op: 'exists' | 'empty' | 'equals' | 'notEquals'; value?: string | number | boolean | undefined } | undefined, data: unknown): boolean {
+type ConditionInput =
+  | { path: string; op: 'exists' | 'empty' | 'equals' | 'notEquals' | 'gt' | 'gte' | 'lt' | 'lte'; value?: string | number | boolean | undefined }
+  | { all: ConditionInput[] }
+  | { any: ConditionInput[] }
+  | { not: ConditionInput }
+
+function toNumberStrict(v: unknown): number | undefined {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : undefined
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = Number(v.replace(',', '.'))
+    return Number.isFinite(n) ? n : undefined
+  }
+  return undefined
+}
+
+/** Evaluates a `visibleWhen` condition (a leaf or all / any / not of conditions) against one Record. */
+export function evaluateCondition(condition: ConditionInput | undefined, data: unknown): boolean {
   if (!condition) return true
+  if ('all' in condition) return condition.all.every((c) => evaluateCondition(c, data))
+  if ('any' in condition) return condition.any.some((c) => evaluateCondition(c, data))
+  if ('not' in condition) return !evaluateCondition(condition.not, data)
   const value = lookup(data, condition.path)
   const present = value !== undefined && value !== null && value !== '' && value !== false && !(Array.isArray(value) && value.length === 0)
   switch (condition.op) {
@@ -157,5 +175,11 @@ export function evaluateCondition(condition: { path: string; op: 'exists' | 'emp
       return present && String(value) === String(condition.value)
     case 'notEquals':
       return !present || String(value) !== String(condition.value)
+    default: {
+      const left = toNumberStrict(value)
+      const right = toNumberStrict(condition.value)
+      if (left === undefined || right === undefined) return false
+      return condition.op === 'gt' ? left > right : condition.op === 'gte' ? left >= right : condition.op === 'lt' ? left < right : left <= right
+    }
   }
 }

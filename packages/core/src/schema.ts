@@ -5,14 +5,24 @@ export const CURRENT_SCHEMA_VERSION = 1
 const mm = z.number().finite()
 const color = z.string().regex(/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i, 'expected a hex colour such as #1F3A5F')
 
-/** Shows an element or block only when the condition holds for the Record (`visibleWhen`). */
-export const ConditionSchema = z.object({
+/** A single comparison against one Record value. */
+export const LeafConditionSchema = z.object({
   path: z.string().min(1),
-  /** `exists`: has a non-empty value; `empty`: the opposite; `equals` / `notEquals` compare with `value` as text. */
-  op: z.enum(['exists', 'empty', 'equals', 'notEquals']).default('exists'),
+  /**
+   * `exists`: has a non-empty value; `empty`: the opposite; `equals` / `notEquals` compare as text;
+   * `gt` / `gte` / `lt` / `lte` compare as numbers (false when either side is not a number).
+   */
+  op: z.enum(['exists', 'empty', 'equals', 'notEquals', 'gt', 'gte', 'lt', 'lte']).default('exists'),
   value: z.union([z.string(), z.number(), z.boolean()]).optional(),
 })
-export type Condition = z.infer<typeof ConditionSchema>
+export type LeafCondition = z.output<typeof LeafConditionSchema>
+
+/** `visibleWhen`: shows an element or block only when the Condition holds for the Record. Leaves combine with all (AND), any (OR) and not. */
+export type Condition = LeafCondition | { all: Condition[] } | { any: Condition[] } | { not: Condition }
+
+export const ConditionSchema: z.ZodType<Condition, unknown> = z.lazy(() =>
+  z.union([LeafConditionSchema, z.object({ all: z.array(ConditionSchema).min(1) }), z.object({ any: z.array(ConditionSchema).min(1) }), z.object({ not: ConditionSchema })]),
+)
 
 export const PageRuleSchema = z.enum(['all', 'first', 'notFirst', 'last'])
 export type PageRule = z.infer<typeof PageRuleSchema>
