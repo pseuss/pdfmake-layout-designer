@@ -1,4 +1,4 @@
-import { ADDRESS_PRESETS, applyFormatter, isSvgAsset, pageRuleMatches, pageSizeMm, type FlowBlock, type Layout, type StaticElement } from '@pdf-layouter/core'
+import { ADDRESS_PRESETS, applyFormatter, isSvgAsset, lookup, pageRuleMatches, pageSizeMm, toBlocks, type FlowBlock, type Layout, type StaticElement } from '@pdf-layouter/core'
 import { clear, h } from './dom'
 import { cssFontFamily } from './fonts'
 import { moveStatic, staticRect } from './actions'
@@ -23,6 +23,10 @@ interface Session {
 }
 
 const FLOW_HEIGHT_MM: Record<FlowBlock['type'], number> = { text: 14, table: 40, totals: 20, dynamicSections: 30, pageBreak: 6 }
+const ROW_TYPES = new Set<FlowBlock['type']>(['text', 'table', 'totals'])
+/** Must match the gap the Generator puts between blocks of one row. */
+const ROW_GAP_MM = 4
+const SAMPLE_ROWS = 4
 
 export class Canvas {
   /** Rulers + stage; this is what the Designer puts into its centre column. */
@@ -342,27 +346,122 @@ export class Canvas {
     label.addEventListener('pointerdown', (e) => this.onContentBoxPointerDown(e, 'move'))
     box.append(label)
     const inner = h('div', { class: 'pld-cbox-inner' })
+    // blocks that share a row are drawn side by side, like the Generator groups them
+    const rows: number[][] = []
     layout.flow.forEach((block, index) => {
-      const isSelected = this.store.selection.kind === 'flow' && this.store.selection.index === index
-      const card = h(
-        'div',
-        {
-          class: `pld-flowcard${isSelected ? ' is-selected' : ''}${block.type === 'pageBreak' ? ' is-break' : ''}`,
-          'data-testid': `flowcard-${index}`,
-          style: { height: this.px(FLOW_HEIGHT_MM[block.type]) },
-        },
-        this.flowCardLabel(block),
-      )
-      card.addEventListener('pointerdown', (e) => {
-        e.stopPropagation()
-        this.store.select({ kind: 'flow', index })
-      })
-      inner.append(card)
+      const previous = rows[rows.length - 1]
+      const joins = 'sameRow' in block && block.sameRow && previous && ROW_TYPES.has(block.type) && previous.every((i) => ROW_TYPES.has(layout.flow[i]!.type))
+      if (joins) previous.push(index)
+      else rows.push([index])
     })
+    for (const row of rows) {
+      const cards = row.map((index) => this.renderFlowCard(layout, layout.flow[index]!, index))
+      if (row.length === 1) inner.append(cards[0]!)
+      else inner.append(h('div', { class: 'pld-flowrow', 'data-testid': `flowrow-${row[0]}`, style: { gap: this.px(ROW_GAP_MM) } }, ...cards))
+    }
     box.append(inner)
     if (selected) for (const handle of HANDLES) box.append(h('div', { class: 'pld-handle', 'data-handle': handle, 'data-testid': `cbox-handle-${handle}`, style: { pointerEvents: 'auto' } }))
     box.querySelectorAll<HTMLElement>('.pld-handle').forEach((el) => el.addEventListener('pointerdown', (e) => this.onContentBoxPointerDown(e, 'resize', el.dataset.handle as Handle)))
     return box
+  }
+
+  private renderFlowCard(layout: Layout, block: FlowBlock, index: number): HTMLElement {
+    const selected = this.store.selection.kind === 'flow' && this.store.selection.index === index
+    const fmt = this.formatValue(layout)
+    const font = cssFontFamily(('font' in block && block.font) || layout.page.defaults.font)
+    const pt = (size: number) => `${size * PT_PX * this.store.zoom}px`
+    const card = h(
+      'div',
+      { class: `pld-flowcard${selected ? ' is-selected' : ''}${block.type === 'pageBreak' ? ' is-break' : ''}`, 'data-testid': `flowcard-${index}`, 'data-type': block.type },
+      h('div', { class: 'pld-flowcard-label' }, this.flowCardLabel(block)),
+    )
+    if (block.type === 'pageBreak') card.style.height = this.px(FLOW_HEIGHT_MM.pageBreak)
+    else if (block.type === 'dynamicSections') card.style.height = this.px(FLOW_HEIGHT_MM.dynamicSections)
+    // a width in millimetres is true to scale, '*' shares what is left of the row
+    const width = 'width' in block ? block.width : undefined
+    const inRow = 'sameRow' in block && !!block.sameRow
+    if (typeof width === 'number' && (inRow || block.type === 'totals')) Object.assign(card.style, { width: this.px(width), flex: 'none' })
+    else if ('width' in block || inRow) card.style.flex = '1 1 0'
+
+    const body = h('div', { class: 'pld-flowbody', style: { fontFamily: font, fontSize: pt(layout.page.defaults.size), color: layout.page.defaults.color } })
+    const text = (template: string, into: HTMLElement) => {
+      const parts = previewText(template, this.store.sampleData, fmt).split(/(\{\{[^{}]*\}\})/)
+      for (const part of parts) into.append(part.startsWith('{{') ? h('span', { class: 'pld-missing' }, part) : part)
+    }
+    if (block.type === 'text') {
+      for (const rich of toBlocks(block.content)) {
+        const para = h('div', { class: 'pld-flowpara' })
+        if (rich.type === 'paragraph') {
+          para.style.textAlign = rich.align ?? 'left'
+          for (const run of rich.runs) {
+            const span = h('span', {})
+            Object.assign(span.style, {
+              fontWeight: run.bold ? '700' : '',
+              fontStyle: run.italic ? 'italic' : '',
+              textDecoration: run.underline ? 'underline' : '',
+              color: run.color ?? '',
+              fontSize: run.size ? pt(run.size) : '',
+            })
+            text(run.text, span)
+            para.append(span)
+          }
+        } else {
+          rich.items.forEach((runs, i) => {
+            const li = h('div', { class: 'pld-flowli' }, rich.ordered ? `${i + 1}.` : '•', ' ')
+            for (const run of runs) text(run.text, li)
+            para.append(li)
+          })
+        }
+        body.append(para)
+      }
+    } else if (block.type === 'table') {
+      body.append(this.tableMock(layout, block, fmt))
+    } else if (block.type === 'totals') {
+      const table = h('div', { class: 'pld-flowtotals' })
+      for (const row of block.rows) {
+        const line = h('div', { class: `pld-flowtotals-row${row.bold ? ' is-bold' : ''}` }, h('span', {}, ''), h('span', {}, ''))
+        text(row.label, line.children[0] as HTMLElement)
+        text(row.value, line.children[1] as HTMLElement)
+        table.append(line)
+      }
+      body.append(table)
+    }
+    if (body.childNodes.length) card.append(body)
+    card.addEventListener('pointerdown', (e) => {
+      e.stopPropagation()
+      this.store.select({ kind: 'flow', index })
+    })
+    return card
+  }
+
+  /** A true-to-scale mock-up of a table: column widths, titles, alignment, formats, zebra and borders. */
+  private tableMock(layout: Layout, block: Extract<FlowBlock, { type: 'table' }>, fmt: (value: unknown, formatter: string | undefined) => string): HTMLElement {
+    const style = block.style
+    const rows = lookup(this.store.sampleData, block.source)
+    const real = Array.isArray(rows) ? (rows as Record<string, unknown>[]) : []
+    const shown = real.slice(0, SAMPLE_ROWS)
+    const cols = block.columns
+    const wrap = h('div', { class: `pld-flowtable is-${style.borders}`, style: { fontSize: `${(style.size ?? layout.page.defaults.size) * PT_PX * this.store.zoom}px`, borderColor: style.borderColor } })
+    const grid = h('div', { class: 'pld-flowtable-grid', style: { gridTemplateColumns: cols.map((c) => (typeof c.width === 'number' ? this.px(c.width) : c.width === 'auto' ? 'auto' : 'minmax(0, 1fr)')).join(' ') } })
+    const cell = (content: string, c: (typeof cols)[number], extra: Partial<CSSStyleDeclaration> = {}, cls = '') => {
+      const el = h('div', { class: `pld-flowcell ${cls}`, style: { textAlign: c.align, borderColor: style.borderColor } }, content)
+      Object.assign(el.style, extra)
+      grid.append(el)
+    }
+    for (const c of cols) cell(c.title || c.field, c, { background: style.headerFill ?? '', color: style.headerColor ?? '', fontWeight: '700' }, 'is-head')
+    const count = shown.length || SAMPLE_ROWS
+    for (let r = 0; r < count; r++) {
+      const zebra = style.zebra && r % 2 === 1 ? style.zebraFill : ''
+      for (const c of cols) {
+        const raw = shown.length ? lookup(shown[r], c.field) : undefined
+        const content = shown.length ? (raw === undefined || raw === null ? '' : fmt(raw, c.format)) : ''
+        cell(content, c, { background: zebra }, shown.length ? '' : 'is-dummy')
+      }
+    }
+    wrap.append(grid)
+    if (real.length > shown.length) wrap.append(h('div', { class: 'pld-flowtable-more' }, `… +${real.length - shown.length}`))
+    else if (!shown.length) wrap.append(h('div', { class: 'pld-flowtable-more' }, this.t('flow.noRows')))
+    return wrap
   }
 
   flowCardLabel(block: FlowBlock): string {

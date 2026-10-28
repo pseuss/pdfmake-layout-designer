@@ -257,4 +257,55 @@ test.describe('placeholder picker (A5)', () => {
     const warnings = await page.evaluate(() => (window as any).__app.designer.getWarnings())
     expect(warnings.map((w: any) => w.code).sort()).toEqual(['no-sample-value', 'unknown-placeholder'])
   })
+
+  test('the canvas draws the table true to scale: titles, widths, sample rows and formats', async ({ page }) => {
+    await open(page)
+    const card = page.getByTestId('flowcard-2')
+    await expect(card.locator('.pld-flowcell.is-head')).toHaveText(['Pos', 'Leistung', 'Menge', 'Einzel', 'Gesamt'])
+    await expect(card.locator('.pld-flowcell').nth(5)).toHaveText('1')
+    await expect(card.locator('.pld-flowtable-more')).toContainText('+')
+    // currency columns are formatted like in the PDF
+    await expect(card).toContainText('€')
+    // a fixed column width is drawn in millimetres: changing it changes the drawn column
+    const before = (await card.locator('.pld-flowcell.is-head').nth(0).boundingBox())!.width
+    await card.click()
+    await page.getByTestId('col-0-width').fill('40')
+    const after = (await page.getByTestId('flowcard-2').locator('.pld-flowcell.is-head').nth(0).boundingBox())!.width
+    expect(after).toBeGreaterThan(before * 1.5)
+  })
+
+  test('two blocks can sit side by side in the Content Box (canvas and PDF)', async ({ page }) => {
+    const errors = await open(page, 'layout=empty')
+    await page.getByTestId('add-flow-text').click()
+    await page.locator('.ProseMirror').click()
+    await page.keyboard.type('LINKS')
+    await page.getByTestId('block-width').fill('60')
+    await page.getByTestId('add-flow-text').click()
+    await page.locator('.ProseMirror').click()
+    await page.keyboard.type('RECHTS')
+    await page.getByTestId('same-row').check()
+    const flow = (await layout(page)).flow as any[]
+    expect(flow[0].width).toBe(60)
+    expect(flow[1].sameRow).toBe(true)
+
+    const a = (await page.getByTestId('flowcard-0').boundingBox())!
+    const b = (await page.getByTestId('flowcard-1').boundingBox())!
+    expect(Math.abs(a.y - b.y)).toBeLessThan(2)
+    expect(b.x).toBeGreaterThan(a.x + a.width)
+
+    const bytes = await generate(await layout(page), {}, {})
+    const info = await readPdf(bytes)
+    const items = info.pages[0]!.items
+    const l = items.find((i) => i.str.endsWith('LINKS'))!
+    const r = items.find((i) => i.str.endsWith('RECHTS'))!
+    expect(Math.abs(l.y - r.y)).toBeLessThan(1)
+    expect(r.x).toBeGreaterThan(l.x + 100)
+    expectNoErrors(errors)
+  })
+
+  test('the first block cannot be put next to a predecessor', async ({ page }) => {
+    await open(page, 'layout=empty')
+    await page.getByTestId('add-flow-text').click()
+    await expect(page.getByTestId('same-row')).toBeDisabled()
+  })
 })

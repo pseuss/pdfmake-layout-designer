@@ -169,12 +169,16 @@ function buildTable(columns: Column[], rows: Record<string, unknown>[], style: T
   }
 }
 
+/** mm gap between blocks that share a row */
+const ROW_GAP_MM = 4
+const ROW_TYPES = new Set<FlowBlock['type']>(['text', 'table', 'totals'])
+
 function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: Warning) => void): Node[] {
   const resolve = (s: string) => resolveTemplate(s, data, ctx, warn)
-  const out: Node[] = []
-  const flowBlock = (block: FlowBlock) => {
-    if (!evaluateCondition(block.visibleWhen, data)) return
-    const start = out.length
+
+  /** Nodes of one block; `inRow` totals fill their column instead of aligning themselves. */
+  const blockNodes = (block: FlowBlock, inRow: boolean): Node[] => {
+    const out: Node[] = []
     switch (block.type) {
       case 'text':
         out.push({ stack: richNodes(block.content, resolve), margin: block.margin })
@@ -211,7 +215,11 @@ function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: War
             paddingRight: () => 4,
           },
         }
-        const columns: Node[] = [{ width: mmToPt(block.width), ...table }]
+        if (inRow) {
+          out.push({ ...table, margin: [0, 0, 0, 8] })
+          break
+        }
+        const columns: Node[] = [{ width: block.width === '*' ? '*' : mmToPt(block.width), ...table }]
         if (block.align === 'right') columns.unshift({ width: '*', text: '' })
         out.push({ columns, margin: [0, 0, 0, 8] })
         break
@@ -243,9 +251,33 @@ function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: War
         break
     }
     // a block font overrides the document font for everything the block produced
-    if ('font' in block && block.font) for (let i = start; i < out.length; i++) out[i]!.font = block.font
+    if ('font' in block && block.font) for (const node of out) node.font = block.font
+    return out
   }
-  layout.flow.forEach(flowBlock)
+
+  // blocks that share a row are grouped; a hidden block neither starts nor breaks a row
+  const rows: FlowBlock[][] = []
+  for (const block of layout.flow) {
+    if (!evaluateCondition(block.visibleWhen, data)) continue
+    const previous = rows[rows.length - 1]
+    if ('sameRow' in block && block.sameRow && previous && ROW_TYPES.has(block.type) && previous.every((b) => ROW_TYPES.has(b.type))) previous.push(block)
+    else rows.push([block])
+  }
+
+  const out: Node[] = []
+  for (const row of rows) {
+    if (row.length === 1) {
+      out.push(...blockNodes(row[0]!, false))
+      continue
+    }
+    out.push({
+      columns: row.map((block) => {
+        const width = 'width' in block && block.width !== undefined && block.width !== '*' ? mmToPt(block.width) : '*'
+        return { width, stack: blockNodes(block, true) }
+      }),
+      columnGap: mmToPt(ROW_GAP_MM),
+    })
+  }
   return out
 }
 

@@ -423,6 +423,24 @@ export class Inspector {
     if (block.type !== 'pageBreak') {
       this.propsEl.append(this.fontField(block.font, (v) => this.editFlow<'text'>(index, (b) => void (b.font = v))))
     }
+    if (block.type === 'text' || block.type === 'table' || block.type === 'totals') {
+      const prev = this.store.layout.flow[index - 1]
+      const canJoin = !!prev && (prev.type === 'text' || prev.type === 'table' || prev.type === 'totals')
+      const sameRow = this.check(T('prop.sameRow'), !!block.sameRow && canJoin, (v) => {
+        this.editFlow<'text'>(index, (b) => void (b.sameRow = v || undefined), true)
+        this.render()
+      }, 'same-row')
+      sameRow.querySelector('input')?.toggleAttribute('disabled', !canJoin)
+      this.propsEl.append(sameRow)
+      if (block.type !== 'totals') {
+        this.propsEl.append(
+          this.text(T('prop.rowWidth'), block.width === undefined ? '*' : String(block.width), (v) => {
+            const n = Number(v.replace(',', '.'))
+            this.editFlow<'text'>(index, (b) => void (b.width = v.trim() === '' || v.trim() === '*' ? undefined : Number.isFinite(n) && n > 0 ? n : b.width))
+          }, 'block-width'),
+        )
+      }
+    }
     switch (block.type) {
       case 'text': {
         const editor = new RichTextEditor(block.content, T, (blocks) => this.editFlow<'text'>(index, (b) => void (b.content = blocks)))
@@ -542,7 +560,7 @@ export class Inspector {
       )
     })
     this.propsEl.append(
-      this.num(T('prop.w'), block.width, (v) => this.editFlow<'totals'>(index, (b) => void (b.width = v)), 'totals-width', { min: 20 }),
+      this.num(T('prop.w'), typeof block.width === 'number' ? block.width : 80, (v) => this.editFlow<'totals'>(index, (b) => void (b.width = v)), 'totals-width', { min: 20 }),
       this.select(T('prop.align'), [['left', T('align.left')], ['right', T('align.right')]], block.align, (v) => this.editFlow<'totals'>(index, (b) => void (b.align = v as 'left' | 'right')), 'totals-align'),
       h('div', { class: 'pld-section-title' }, T('prop.rows')),
       rows,

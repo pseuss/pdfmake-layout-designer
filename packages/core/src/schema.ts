@@ -161,10 +161,12 @@ export const TableStyleSchema = z.object({
 export type TableStyle = z.infer<typeof TableStyleSchema>
 
 const flowCommon = { font: z.string().optional(), visibleWhen: ConditionSchema.optional() }
+/** Text, tables and totals can share a row: `sameRow` puts a block next to the previous one, `width` is '*' (share the rest) or millimetres. */
+const rowCommon = { ...flowCommon, sameRow: z.boolean().optional(), width: z.union([z.literal('*'), mm.positive()]).optional() }
 
-export const FlowTextSchema = z.object({ ...flowCommon, type: z.literal('text'), content: RichContentSchema, margin: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional() })
+export const FlowTextSchema = z.object({ ...rowCommon, type: z.literal('text'), content: RichContentSchema, margin: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional() })
 export const FlowTableSchema = z.object({
-  ...flowCommon,
+  ...rowCommon,
   type: z.literal('table'),
   source: z.string().min(1),
   columns: z.array(ColumnSchema).min(1),
@@ -172,10 +174,10 @@ export const FlowTableSchema = z.object({
 })
 export const TotalsRowSchema = z.object({ label: z.string(), value: z.string(), bold: z.boolean().default(false) })
 export const FlowTotalsSchema = z.object({
-  ...flowCommon,
+  ...rowCommon,
   type: z.literal('totals'),
   rows: z.array(TotalsRowSchema).min(1),
-  width: mm.positive().default(80),
+  width: z.union([z.literal('*'), mm.positive()]).default(80),
   align: z.enum(['left', 'right']).default('right'),
 })
 export const FlowDynamicSectionsSchema = z.object({

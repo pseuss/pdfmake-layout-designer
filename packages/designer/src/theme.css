@@ -367,15 +367,43 @@
     @apply absolute inset-0 flex flex-col gap-[3px] overflow-hidden p-0.5;
   }
   .pld-flowcard {
-    @apply pointer-events-auto flex-none cursor-pointer overflow-hidden rounded-[3px] border border-zinc-300 bg-white/90 px-1.5 py-0.5 text-[11px] text-zinc-600;
+    @apply pointer-events-auto relative min-w-0 flex-none cursor-pointer overflow-hidden rounded-[3px] border border-zinc-300 bg-white/90 text-[11px] text-zinc-600;
     &.is-selected {
       border-color: var(--pld-primary);
-      background: color-mix(in srgb, var(--pld-primary) 14%, white);
+      background: color-mix(in srgb, var(--pld-primary) 10%, white);
     }
     &.is-break {
       @apply border-dashed text-center;
     }
   }
+  .pld-flowrow {
+    @apply flex flex-none items-stretch;
+  }
+  .pld-flowcard-label {
+    @apply pointer-events-none absolute top-0 right-0 z-1 max-w-full truncate rounded-bl-[3px] bg-zinc-100/90 px-1 text-[10px] leading-4 text-zinc-500;
+  }
+  .pld-flowcard:is([data-type='text'], [data-type='table'], [data-type='totals']) .pld-flowcard-label {
+    @apply opacity-0 transition-opacity;
+  }
+  .pld-flowcard:hover .pld-flowcard-label,
+  .pld-flowcard.is-selected .pld-flowcard-label {
+    @apply opacity-100;
+  }
+  .pld-flowcard.is-selected .pld-flowcard-label {
+    background: var(--pld-primary);
+    color: var(--pld-on-primary);
+  }
+  .pld-flowbody {
+    @apply pointer-events-none px-0.5 py-px text-zinc-800;
+  }
+  .pld-flowpara { margin-bottom: 0.4em; line-height: 1.15; white-space: pre-wrap; }
+  .pld-flowtotals-row { @apply flex justify-between gap-2; &.is-bold { @apply border-t border-zinc-700 font-bold; } }
+  .pld-flowtable-grid { display: grid; }
+  .pld-flowcell { @apply min-w-0 overflow-hidden px-1 py-px text-ellipsis whitespace-nowrap; min-height: 1.6em; }
+  .pld-flowcell.is-dummy { background-image: linear-gradient(to right, transparent 15%, rgb(0 0 0 / 0.07) 15%, rgb(0 0 0 / 0.07) 85%, transparent 85%); background-size: 100% 0.5em; background-repeat: no-repeat; background-position: center; }
+  .pld-flowtable.is-horizontal .pld-flowcell { border-bottom: 1px solid; }
+  .pld-flowtable.is-grid .pld-flowcell { border: 1px solid; margin: 0 -1px -1px 0; }
+  .pld-flowtable-more { @apply px-1 text-[10px] text-zinc-500 italic; }
 
   .pld-guide {
     @apply pointer-events-none absolute z-6 bg-[#e11d8c];

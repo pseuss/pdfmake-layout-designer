@@ -499,3 +499,42 @@ describe('A-series: generator behaviour', () => {
     expect(mmToPt(25.4)).toBeCloseTo(72, 10)
   })
 })
+
+describe('blocks side by side in the Content Box', () => {
+  const rowLayout = (flow: unknown[]): LayoutInput => ({ schemaVersion: 1, page: { contentBox: { first: { top: 30, bottom: 20, left: 25, right: 20 }, follow: { top: 30, bottom: 20, left: 25, right: 20 } } }, flow } as LayoutInput)
+  const text = (t: string, extra: object = {}) => ({ type: 'text', content: t, ...extra })
+
+  it('places a block with sameRow next to the previous one, with the given width', async () => {
+    const layout = rowLayout([text('LINKS', { width: 60 }), text('RECHTS', { sameRow: true }), text('DARUNTER')])
+    const info = await readPdf(await generate(layout, {}, { fonts }))
+    const items = info.pages[0]!.items
+    const left = items.find((i) => i.str === 'LINKS')!
+    const right = items.find((i) => i.str === 'RECHTS')!
+    const below = items.find((i) => i.str === 'DARUNTER')!
+    expect(Math.abs(left.y - right.y)).toBeLessThan(1)
+    expect(leftMm(right.x)).toBeCloseTo(25 + 60 + 4, 0) // left edge + column + gap
+    expect(below.y).toBeLessThan(left.y - 5)
+  })
+
+  it('puts a text, a table and totals in one row', async () => {
+    const layout = rowLayout([
+      text('INFO', { width: 40 }),
+      { type: 'table', source: 'items', columns: [{ field: 'name', title: 'Name', width: '*' }], sameRow: true },
+      { type: 'totals', rows: [{ label: 'Summe', value: '5' }], sameRow: true, width: 30 },
+    ])
+    const info = await readPdf(await generate(layout, { items: [{ name: 'Alpha' }] }, { fonts }))
+    const items = info.pages[0]!.items
+    const xs = ['INFO', 'Name', 'Summe'].map((s) => leftMm(items.find((i) => i.str.includes(s))!.x))
+    expect(xs[0]!).toBeLessThan(xs[1]!)
+    expect(xs[1]!).toBeLessThan(xs[2]!)
+  })
+
+  it('ignores sameRow on the first visible block and on a hidden predecessor', async () => {
+    const layout = rowLayout([text('A', { visibleWhen: { path: 'x', op: 'exists' } }), text('B', { sameRow: true }), text('C', { sameRow: true })])
+    const info = await readPdf(await generate(layout, {}, { fonts }))
+    const b = info.pages[0]!.items.find((i) => i.str === 'B')!
+    const c = info.pages[0]!.items.find((i) => i.str === 'C')!
+    expect(Math.abs(b.y - c.y)).toBeLessThan(1)
+    expect(leftMm(b.x)).toBeCloseTo(25, 0)
+  })
+})
