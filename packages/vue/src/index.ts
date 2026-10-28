@@ -1,6 +1,6 @@
 import { defineComponent, h, onBeforeUnmount, onMounted, ref, toRaw, watch, type PropType } from 'vue'
 import type { Data, FontRegistry, Layout, LayoutInput } from '@pdf-layouter/core'
-import { Designer, type ImageOptions, type Locale, type PlaceholderCatalog, type ThemeMode } from '@pdf-layouter/designer'
+import { Designer, pickDesignerOptions, type ImageOptions, type Locale, type PlaceholderCatalog, type ThemeMode } from '@pdf-layouter/designer'
 
 /**
  * Vue 3 wrapper around the framework-agnostic Designer (`v-model` carries the Layout JSON).
@@ -17,6 +17,7 @@ export const LayoutDesigner = defineComponent({
     images: { type: Object as PropType<Partial<ImageOptions>>, default: undefined },
     theme: { type: String as PropType<ThemeMode>, default: undefined },
     primaryColor: { type: String, default: undefined },
+    grid: { type: Number, default: undefined },
   },
   emits: { 'update:modelValue': (_layout: Layout) => true, ready: (_designer: Designer) => true },
   setup(props, { emit, expose }) {
@@ -28,13 +29,7 @@ export const LayoutDesigner = defineComponent({
       designer = new Designer({
         container: host.value!,
         layout: props.modelValue ? toRaw(props.modelValue) : undefined,
-        placeholders: props.placeholders ? toRaw(props.placeholders) : undefined,
-        sampleData: props.sampleData ? toRaw(props.sampleData) : undefined,
-        fonts: props.fonts ? toRaw(props.fonts) : undefined,
-        locale: props.locale,
-        images: props.images,
-        theme: props.theme,
-        primaryColor: props.primaryColor,
+        ...pickDesignerOptions(Object.fromEntries(Object.entries(props).map(([key, value]) => [key, toRaw(value)]))),
         onChange: (layout) => {
           lastEmitted = layout
           emit('update:modelValue', layout)

@@ -1,6 +1,6 @@
 import { createElement, useEffect, useRef, type CSSProperties, type ReactElement } from 'react'
 import type { Data, Layout, LayoutInput } from '@pdf-layouter/core'
-import { Designer, type DesignerOptions, type PlaceholderCatalog } from '@pdf-layouter/designer'
+import { Designer, pickDesignerOptions, type DesignerOptions, type PlaceholderCatalog } from '@pdf-layouter/designer'
 
 export interface LayoutDesignerProps extends Omit<DesignerOptions, 'container' | 'layout' | 'onChange' | 'placeholders' | 'sampleData'> {
   /** The stored Layout JSON. Keep the reference stable between renders; the component calls `onChange` when the user edits. */
@@ -27,13 +27,7 @@ export function LayoutDesigner(props: LayoutDesignerProps): ReactElement {
     const instance = new Designer({
       container: host.current!,
       layout: p.value,
-      placeholders: p.placeholders,
-      sampleData: p.sampleData,
-      fonts: p.fonts,
-      locale: p.locale,
-      images: p.images,
-      theme: p.theme,
-      primaryColor: p.primaryColor,
+      ...pickDesignerOptions(p),
       onChange: (layout) => {
         lastEmitted.current = layout
         latest.current.onChange?.(layout)

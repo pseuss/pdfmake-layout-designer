@@ -32,7 +32,8 @@ export interface BatchOptions extends GenerateOptions {
   /**
    * `single` (default): one pdfmake document, page rules resolved through a measuring pass.
    * `merge`: every record is rendered on its own and the PDFs are joined with `pdf-lib`
-   * (optional peer dependency). Isolated rendering is the fallback for complex cases; PDF/A and attachments are not supported.
+   * (optional peer dependency). Isolated rendering is the fallback for complex cases. Page rules such as
+   * `first` and `last` and `{{pages}}` then apply per record only, and PDF/A and attachments are not supported.
    */
   strategy?: 'single' | 'merge'
 }
@@ -53,7 +54,16 @@ const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefine
 
 let pdfmakePromise: Promise<PdfMake> | undefined
 let robotoRegistered = false
-let attachmentCounter = 0
+/**
+ * pdfmake keeps fonts, URL policies and its virtual file system global. Renders therefore run one
+ * after the other, so concurrent calls with different Font Registries or attachments never see each other's state.
+ */
+let renderQueue: Promise<unknown> = Promise.resolve()
+const exclusive = <T>(task: () => Promise<T>): Promise<T> => {
+  const result = renderQueue.then(task, task)
+  renderQueue = result.catch(() => undefined)
+  return result
+}
 
 async function loadPdfMake(): Promise<PdfMake> {
   pdfmakePromise ??= import('pdfmake').then((m) => ((m as { default?: PdfMake }).default ?? (m as unknown as PdfMake)))
@@ -84,7 +94,11 @@ function absolutize(file: string): string {
   return new URL(file, document.baseURI).href
 }
 
-async function renderPdf(pdfmake: PdfMake, doc: DocDefinition, fonts: PdfmakeFonts, options: GenerateOptions): Promise<Uint8Array> {
+function renderPdf(pdfmake: PdfMake, doc: DocDefinition, fonts: PdfmakeFonts, options: GenerateOptions): Promise<Uint8Array> {
+  return exclusive(() => renderExclusive(pdfmake, doc, fonts, options))
+}
+
+async function renderExclusive(pdfmake: PdfMake, doc: DocDefinition, fonts: PdfmakeFonts, options: GenerateOptions): Promise<Uint8Array> {
   const allowed = new Set<string>()
   const table: Record<string, unknown> = {}
   for (const [family, files] of Object.entries(fonts)) {
@@ -106,11 +120,12 @@ async function renderPdf(pdfmake: PdfMake, doc: DocDefinition, fonts: PdfmakeFon
     pdfDoc.displayTitle = true
   }
   if (options.info) pdfDoc.info = { ...options.info }
+  const attachmentFiles: string[] = []
   if (options.attachments?.length) {
     pdfDoc.files = {}
-    options.attachments.forEach((a) => {
-      // unique per call so that concurrent generate() calls never overwrite each other's bytes
-      const vfsName = `pdf-layouter-attachment-${++attachmentCounter}-${a.filename}`
+    options.attachments.forEach((a, i) => {
+      const vfsName = `pdf-layouter-attachment-${i}-${a.filename}`
+      attachmentFiles.push(vfsName)
       pdfmake.virtualfs.writeFileSync(vfsName, toBase64(a.data), 'base64')
       pdfDoc.files[a.filename] = {
         src: vfsName,
@@ -122,12 +137,15 @@ async function renderPdf(pdfmake: PdfMake, doc: DocDefinition, fonts: PdfmakeFon
     })
   }
 
-  // pdfmake reads fonts and policies synchronously inside createPdf, so setting them right before is safe.
   pdfmake.setFonts(table)
   pdfmake.setUrlAccessPolicy((url) => allowed.has(url))
   pdfmake.setLocalAccessPolicy?.((path) => allowed.has(path))
-  const bytes = await pdfmake.createPdf(pdfDoc).getBuffer()
-  return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  try {
+    const bytes = await pdfmake.createPdf(pdfDoc).getBuffer()
+    return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  } finally {
+    for (const name of attachmentFiles) delete pdfmake.virtualfs.storage[name]
+  }
 }
 
 /** Lays the document out once and reads the page span of every record from the marker nodes. */
@@ -189,12 +207,20 @@ async function runMerged(layoutInput: Layout | LayoutInput | unknown, records: D
   }
   const layout = parseLayout(layoutInput)
   const merged = await lib.PDFDocument.create()
+  // every record is generated alone, so the same warning (e.g. an unknown font) would repeat per record
+  const seen = new Set<string>()
+  const onWarning = (w: Warning) => {
+    const key = `${w.code}:${w.message}`
+    if (seen.has(key)) return
+    seen.add(key)
+    options.onWarning?.(w)
+  }
   for (const [index, record] of records.entries()) {
-    const part = await run(layout, [record], { ...options, onePagePerRecord: false })
+    const part = await run(layout, [record], { ...options, onWarning, onePagePerRecord: false })
     const source = await lib.PDFDocument.load(part)
     const count = source.getPageCount()
     if (options.onePagePerRecord && count > 1) {
-      if (options.overflow === 'warn') options.onWarning?.({ code: 'overflow', message: `Record ${index} needs ${count} pages` })
+      if (options.overflow === 'warn') onWarning({ code: 'overflow', message: `Record ${index} needs ${count} pages` })
       else throw new RecordOverflowError(index, count)
     }
     for (const page of await merged.copyPages(source, source.getPageIndices())) merged.addPage(page)

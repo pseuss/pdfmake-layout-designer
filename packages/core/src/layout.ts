@@ -32,7 +32,7 @@ type PageGeometry = Pick<Layout['page'], 'size' | 'orientation' | 'contentBox'>
 
 /**
  * The "Seite x von y" element: a normal Static Element (movable, editable, deletable) that uses the
- * `{{page}}` and `{{pages}}` variables. It sits where the old fixed footer was: just below the content box.
+ * `{{page}}` and `{{pages}}` placeholders. It sits where the old fixed footer was: just below the content box.
  */
 export function pageNumberElement(page: PageGeometry, id = 'pagenumber', overrides: Partial<Extract<StaticElement, { type: 'text' }>> = {}): StaticElement {
   const { w, h } = PAGE_SIZES_MM[page.size]

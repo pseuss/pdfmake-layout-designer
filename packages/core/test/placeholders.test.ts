@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyFormatter, evaluateCondition, lookup, parseTemplate, placeholderPaths, resolveTemplate, type Warning } from '@pdf-layouter/core'
+import { applyFormatter, evaluateCondition, lookup, parsePlaceholders, placeholderPaths, resolvePlaceholders, type Warning } from '@pdf-layouter/core'
 
 const de = { locale: 'de-DE', currency: 'EUR' }
 const en = { locale: 'en-US', currency: 'USD' }
@@ -20,31 +20,31 @@ describe('lookup', () => {
   })
 })
 
-describe('resolveTemplate', () => {
+describe('resolvePlaceholders', () => {
   it('replaces placeholders and keeps surrounding text', () => {
-    expect(resolveTemplate('Hallo {{kunde.name}}, Nr. {{nr}}!', { kunde: { name: 'Anna' }, nr: 7 }, de)).toBe('Hallo Anna, Nr. 7!')
+    expect(resolvePlaceholders('Hallo {{kunde.name}}, Nr. {{nr}}!', { kunde: { name: 'Anna' }, nr: 7 }, de)).toBe('Hallo Anna, Nr. 7!')
   })
 
   it('leaves missing values empty and reports a warning', () => {
     const warnings: Warning[] = []
-    expect(resolveTemplate('[{{nope}}]', {}, de, (w) => warnings.push(w))).toBe('[]')
+    expect(resolvePlaceholders('[{{nope}}]', {}, de, (w) => warnings.push(w))).toBe('[]')
     expect(warnings).toEqual([{ code: 'missing-value', message: 'No value for placeholder {{nope}}' }])
   })
 
   it('treats 0 and false as values, not as missing', () => {
     const warnings: Warning[] = []
-    expect(resolveTemplate('{{a}}|{{b}}', { a: 0, b: false }, de, (w) => warnings.push(w))).toBe('0|false')
+    expect(resolvePlaceholders('{{a}}|{{b}}', { a: 0, b: false }, de, (w) => warnings.push(w))).toBe('0|false')
     expect(warnings).toEqual([])
   })
 
   it('does not evaluate expressions and does not re-scan substituted values', () => {
     const data = { evil: '{{secret}}', secret: 'S', fn: () => 'x' }
-    expect(resolveTemplate('{{evil}}', data, de)).toBe('{{secret}}')
-    expect(resolveTemplate('{{1+1}} {{fn()}} {{constructor.name}}', data, de)).toBe('  ')
+    expect(resolvePlaceholders('{{evil}}', data, de)).toBe('{{secret}}')
+    expect(resolvePlaceholders('{{1+1}} {{fn()}} {{constructor.name}}', data, de)).toBe('  ')
   })
 
   it('exposes parse results for tooling', () => {
-    expect(parseTemplate('a {{x | currency}} b')).toEqual([
+    expect(parsePlaceholders('a {{x | currency}} b')).toEqual([
       { kind: 'text', value: 'a ' },
       { kind: 'placeholder', path: 'x', formatter: 'currency', raw: '{{x | currency}}' },
       { kind: 'text', value: ' b' },

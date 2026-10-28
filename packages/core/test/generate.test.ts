@@ -565,3 +565,20 @@ describe('totals rule', () => {
     expect(rowsOf([{ label: 'a', value: '1', line: true }, { label: 'b', value: '2', bold: true, line: false }])).toEqual([0.75, 0])
   })
 })
+
+describe('rendering state', () => {
+  it('removes attachments from pdfmake after each render', async () => {
+    const pdfmake = (await import('pdfmake')).default
+    const before = Object.keys(pdfmake.virtualfs.storage).filter((k) => k.startsWith('pdf-layouter-attachment')).length
+    await generate({ schemaVersion: 1 }, {}, { fonts, attachments: [{ filename: 'a.xml', data: '<a/>' }] })
+    const after = Object.keys(pdfmake.virtualfs.storage).filter((k) => k.startsWith('pdf-layouter-attachment')).length
+    expect(after).toBe(before)
+  })
+
+  it('merge strategy reports a warning once, not once per record', async () => {
+    const warnings: Warning[] = []
+    const layout = { schemaVersion: 1, page: { defaults: { font: 'Unbekannt' } }, flow: [{ type: 'text', content: 'x' }] } as LayoutInput
+    await generateBatch(layout, [{}, {}, {}], { fonts, strategy: 'merge', onWarning: (w) => warnings.push(w) })
+    expect(warnings.filter((w) => w.code === 'unknown-font')).toHaveLength(1)
+  })
+})

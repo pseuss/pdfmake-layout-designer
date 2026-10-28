@@ -1,4 +1,5 @@
 import type { Column, FlowBlock, StaticElement } from '@pdf-layouter/core'
+import type { Translator } from './i18n'
 import type { PlaceholderField, PlaceholderList } from './warnings'
 
 type ElementOf<T extends StaticElement['type']> = Extract<StaticElement, { type: T }>
@@ -15,12 +16,13 @@ export function newLine(id: string): ElementOf<'line'> {
   return { id, type: 'line', pages: 'all', x1: 25, y1: 90, x2: 185, y2: 90, width: 0.5, color: '#999999', dash: 'solid' }
 }
 
-export function newAddress(id: string): ElementOf<'address'> {
-  return { id, type: 'address', pages: 'first', preset: 'DIN5008-B', content: 'Empfänger\nStraße 1\n12345 Ort', align: 'left' }
+export function newAddress(id: string, t: Translator): ElementOf<'address'> {
+  return { id, type: 'address', pages: 'first', preset: 'DIN5008-B', content: t('default.address'), align: 'left' }
 }
 
-export function newImage(id: string, asset: string, pxW: number, pxH: number): ElementOf<'image'> {
-  const w = Math.min(45, 210 - 50)
+/** A new image is at most 45 mm wide and keeps 25 mm free on each side of the page. */
+export function newImage(id: string, asset: string, pxW: number, pxH: number, pageWidthMm: number): ElementOf<'image'> {
+  const w = Math.min(45, pageWidthMm - 50)
   return { id, type: 'image', pages: 'all', asset, x: 25, y: 20, w, h: Math.max(1, Math.round((w * pxH) / pxW * 100) / 100) }
 }
 
@@ -32,18 +34,18 @@ export function columnFor(field: PlaceholderField | { key: string; label?: strin
   return { field: field.key, title: field.label ?? field.key, width: numeric ? 28 : '*', align: numeric ? 'right' : 'left', format: FORMAT_FOR[type] ?? 'text' }
 }
 
-export function newFlow(type: FlowBlock['type'], lists: PlaceholderList[] = []): FlowBlock {
+export function newFlow(type: FlowBlock['type'], t: Translator, lists: PlaceholderList[] = []): FlowBlock {
   switch (type) {
     case 'text':
       return { type: 'text', content: [{ type: 'paragraph', runs: [{ text: 'Text' }] }] }
     case 'table': {
       const list = lists[0]
-      const columns = list?.fields.length ? list.fields.slice(0, 4).map(columnFor) : [{ field: 'beschreibung', title: 'Beschreibung', width: '*' as const, align: 'left' as const, format: 'text' }]
+      const columns = list?.fields.length ? list.fields.slice(0, 4).map(columnFor) : [{ field: 'beschreibung', title: t('default.description'), width: '*' as const, align: 'left' as const, format: 'text' }]
       if (columns.length > 1 && columns.every((c) => c.width !== '*')) columns[0]!.width = '*'
       return { type: 'table', source: list?.key ?? 'positionen', columns, style: { zebra: false, zebraFill: '#F6F6F6', borders: 'horizontal', borderColor: '#CCCCCC', headerFill: '#EEEEEE' } }
     }
     case 'totals':
-      return { type: 'totals', width: 80, align: 'right', rows: [{ label: 'Netto', value: '', bold: false }, { label: 'USt', value: '', bold: false }, { label: 'Gesamt', value: '', bold: true }] }
+      return { type: 'totals', width: 80, align: 'right', rows: [{ label: t('default.net'), value: '', bold: false }, { label: t('default.vat'), value: '', bold: false }, { label: t('default.total'), value: '', bold: true }] }
     case 'dynamicSections':
       return {
         type: 'dynamicSections',

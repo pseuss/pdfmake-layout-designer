@@ -240,9 +240,9 @@ export class Canvas {
       })
     }
     const fmt = this.formatValue(layout)
-    const renderText = (template: string, into: HTMLElement) => {
+    const renderText = (text: string, into: HTMLElement) => {
       // keep unresolved placeholders visible and highlighted
-      const resolved = previewText(template, this.store.sampleData, fmt)
+      const resolved = previewText(text, this.store.sampleData, fmt)
       const parts = resolved.split(/(\{\{[^{}]*\}\})/)
       for (const part of parts) into.append(part.startsWith('{{') ? h('span', { class: 'pld-missing' }, part) : part)
     }
@@ -384,8 +384,8 @@ export class Canvas {
     else if (typeof width === 'number' && block.type === 'totals') Object.assign(card.style, { width: this.px(Math.min(width, boxMm)), flex: 'none' })
 
     const body = h('div', { class: 'pld-flowbody', style: { fontFamily: font, fontSize: pt(layout.page.defaults.size), color: layout.page.defaults.color } })
-    const text = (template: string, into: HTMLElement) => {
-      const parts = previewText(template, this.store.sampleData, fmt).split(/(\{\{[^{}]*\}\})/)
+    const text = (text: string, into: HTMLElement) => {
+      const parts = previewText(text, this.store.sampleData, fmt).split(/(\{\{[^{}]*\}\})/)
       for (const part of parts) into.append(part.startsWith('{{') ? h('span', { class: 'pld-missing' }, part) : part)
     }
     if (block.type === 'text') {

@@ -3,7 +3,7 @@ declare module 'pdfmake' {
     getBuffer(): Promise<Uint8Array>
   }
   interface PdfMake {
-    virtualfs: { writeFileSync(name: string, content: string, encoding?: string): void; existsSync(name: string): boolean }
+    virtualfs: { writeFileSync(name: string, content: string, encoding?: string): void; existsSync(name: string): boolean; storage: Record<string, unknown> }
     setFonts(fonts: Record<string, unknown>): void
     setUrlAccessPolicy(policy: ((url: string) => boolean) | undefined): void
     setLocalAccessPolicy?(policy: ((path: string) => boolean) | undefined): void

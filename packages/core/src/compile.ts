@@ -3,9 +3,9 @@ import {
   applyFormatter,
   evaluateCondition,
   lookup,
-  resolvePageTemplate,
-  parseTemplate,
-  resolveTemplate,
+  resolvePagePlaceholders,
+  parsePlaceholders,
+  resolvePlaceholders,
   type Data,
   type FormatContext,
   type Warning,
@@ -143,6 +143,11 @@ function tableLayout(style: TableStyle) {
 
 /** Smallest width (mm) a '*' column keeps when fixed columns have to give way. */
 const MIN_STAR_MM = 20
+/** Fixed widths never shrink below this share of what they were set to. */
+const MIN_SHRINK_FACTOR = 0.2
+
+/** Factor (≤ 1) that makes fixed widths summing to `fixed` fit into `room`. */
+const shrinkFactor = (fixed: number, room: number): number => (fixed > 0 && fixed > room ? Math.max(MIN_SHRINK_FACTOR, room / fixed) : 1)
 /** Millimetre gap between blocks that share a row. */
 export const ROW_GAP_MM = 4
 
@@ -153,9 +158,8 @@ export const ROW_GAP_MM = 4
 export function fitColumnWidths(columns: Column[], availMm: number): Column['width'][] {
   const fixed = columns.reduce((sum, c) => sum + (typeof c.width === 'number' ? c.width : 0), 0)
   const stars = columns.filter((c) => c.width === '*').length
-  const room = availMm - stars * MIN_STAR_MM
-  if (fixed <= room || fixed === 0) return columns.map((c) => c.width)
-  const factor = Math.max(0.2, room / fixed)
+  const factor = shrinkFactor(fixed, availMm - stars * MIN_STAR_MM)
+  if (factor === 1) return columns.map((c) => c.width)
   return columns.map((c) => (typeof c.width === 'number' ? Math.round(c.width * factor * 100) / 100 : c.width))
 }
 
@@ -166,7 +170,7 @@ export function rowWidthsMm(blocks: FlowBlock[], availMm: number): number[] {
   const fixedSum = fixed.reduce<number>((sum, w) => sum + (w ?? 0), 0)
   const stars = fixed.filter((w) => w === undefined).length
   const room = availMm - gaps
-  const scale = fixedSum > room - stars * MIN_STAR_MM && fixedSum > 0 ? Math.max(0.2, (room - stars * MIN_STAR_MM) / fixedSum) : 1
+  const scale = shrinkFactor(fixedSum, room - stars * MIN_STAR_MM)
   const share = stars ? Math.max(0, (room - fixedSum * scale) / stars) : 0
   return fixed.map((w) => (w === undefined ? share : w * scale))
 }
@@ -205,7 +209,7 @@ const ROW_TYPES = new Set<FlowBlock['type']>(['text', 'table', 'totals'])
 
 function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: Warning) => void): Node[] {
   const contentMm = pageSizeMm(layout).w - layout.page.contentBox.first.left - layout.page.contentBox.first.right
-  const resolve = (s: string) => resolveTemplate(s, data, ctx, warn)
+  const resolve = (s: string) => resolvePlaceholders(s, data, ctx, warn)
 
   /** Nodes of one block; `inRow` totals fill their column instead of aligning themselves. */
   const blockNodes = (block: FlowBlock, inRow: boolean, availMm: number): Node[] => {
@@ -325,10 +329,10 @@ interface StaticNode {
 }
 
 const PAGE_TOKENS = new Set(['page', 'pages'])
-/** Whether a template contains `{{page}}` or `{{pages}}`. */
+/** Whether a text contains `{{page}}` or `{{pages}}`. */
 const PAGES_TOKEN = /\{\{\s*pages\s*(\|[^}]*)?\}\}/
 
-export const usesPageTokens = (template: string | undefined): boolean => !!template && parseTemplate(template).some((t) => t.kind === 'placeholder' && PAGE_TOKENS.has(t.path))
+export const usesPageTokens = (text: string | undefined): boolean => !!text && parsePlaceholders(text).some((t) => t.kind === 'placeholder' && PAGE_TOKENS.has(t.path))
 
 function textProps(el: { font?: string | undefined; size?: number | undefined; color?: string | undefined; bold?: boolean | undefined; italic?: boolean | undefined; align: string }): Node {
   const props: Node = { alignment: el.align }
@@ -342,7 +346,7 @@ function textProps(el: { font?: string | undefined; size?: number | undefined; c
 
 function staticNodes(layout: Layout, data: Data, ctx: FormatContext, warn: (w: Warning) => void): StaticNode[] {
   let counters: PageCounters | undefined
-  const resolve = (s: string) => (counters ? resolvePageTemplate(s, data, ctx, counters, warn) : resolveTemplate(s, data, ctx, warn))
+  const resolve = (s: string) => (counters ? resolvePagePlaceholders(s, data, ctx, counters, warn) : resolvePlaceholders(s, data, ctx, warn))
   const result: StaticNode[] = []
   for (const el of layout.static as StaticElement[]) {
     if (!evaluateCondition(el.visibleWhen, data)) continue

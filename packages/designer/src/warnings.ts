@@ -1,4 +1,4 @@
-import { lookup, parseTemplate, type Layout } from '@pdf-layouter/core'
+import { lookup, parsePlaceholders, type Layout } from '@pdf-layouter/core'
 import type { Data } from '@pdf-layouter/core'
 
 export interface PlaceholderField {
@@ -30,22 +30,22 @@ export interface DesignerWarning {
 
 const RESERVED = new Set(['page', 'pages'])
 
-/** Every template string of a Layout with a location label, for placeholder checks. */
-export function layoutTemplates(layout: Layout): { where: string; template: string }[] {
-  const out: { where: string; template: string }[] = []
+/** Every text string of a Layout with a location label, for placeholder checks. */
+export function layoutTexts(layout: Layout): { where: string; text: string }[] {
+  const out: { where: string; text: string }[] = []
   for (const el of layout.static) {
-    if (el.type === 'text' || el.type === 'address') out.push({ where: el.id, template: el.content })
-    if (el.type === 'address' && el.returnAddress) out.push({ where: el.id, template: el.returnAddress })
+    if (el.type === 'text' || el.type === 'address') out.push({ where: el.id, text: el.content })
+    if (el.type === 'address' && el.returnAddress) out.push({ where: el.id, text: el.returnAddress })
   }
   layout.flow.forEach((block, i) => {
     const where = `flow:${i}`
     if (block.type === 'text') {
       for (const b of block.content) {
-        if (b.type === 'paragraph') b.runs.forEach((r) => out.push({ where, template: r.text }))
-        else b.items.forEach((runs) => runs.forEach((r) => out.push({ where, template: r.text })))
+        if (b.type === 'paragraph') b.runs.forEach((r) => out.push({ where, text: r.text }))
+        else b.items.forEach((runs) => runs.forEach((r) => out.push({ where, text: r.text })))
       }
     } else if (block.type === 'totals') {
-      block.rows.forEach((r) => out.push({ where, template: r.label }, { where, template: r.value }))
+      block.rows.forEach((r) => out.push({ where, text: r.label }, { where, text: r.value }))
     }
   })
   return out
@@ -65,8 +65,8 @@ export function collectWarnings(layout: Layout, sampleData: Data, catalog?: Plac
   const known = new Set<string>()
   for (const g of catalog?.groups ?? []) for (const f of g.fields) known.add(`${g.key}.${f.key}`)
 
-  for (const { where, template } of layoutTemplates(layout)) {
-    for (const t of parseTemplate(template)) {
+  for (const { where, text } of layoutTexts(layout)) {
+    for (const t of parsePlaceholders(text)) {
       if (t.kind !== 'placeholder' || RESERVED.has(t.path)) continue
       if (catalog && !known.has(t.path)) add({ code: 'unknown-placeholder', message: `{{${t.path}}} is not in the placeholder catalog`, where })
       else if (lookup(sampleData, t.path) === undefined) add({ code: 'no-sample-value', message: `{{${t.path}}} has no value in the sample data`, where })
@@ -100,8 +100,8 @@ export function collectWarnings(layout: Layout, sampleData: Data, catalog?: Plac
 }
 
 /** Replaces placeholders for the canvas; values missing from the sample data stay visible as `{{path}}`. */
-export function previewText(template: string, sampleData: Data, format: (value: unknown, formatter: string | undefined) => string): string {
-  return parseTemplate(template)
+export function previewText(text: string, sampleData: Data, format: (value: unknown, formatter: string | undefined) => string): string {
+  return parsePlaceholders(text)
     .map((t) => {
       if (t.kind === 'text') return t.value
       if (RESERVED.has(t.path)) return '1'

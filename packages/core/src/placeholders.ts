@@ -1,3 +1,5 @@
+import type { Condition } from './schema'
+
 export type Data = Record<string, unknown>
 
 export interface Warning {
@@ -15,17 +17,17 @@ export type Token = { kind: 'text'; value: string } | { kind: 'placeholder'; pat
 const TOKEN = /\{\{\s*([^{}|]*?)\s*(?:\|\s*([^{}]*?)\s*)?\}\}/g
 const FORBIDDEN = new Set(['__proto__', 'constructor', 'prototype'])
 
-/** Splits a template into literal text and placeholder tokens. */
-export function parseTemplate(template: string): Token[] {
+/** Splits a text into literal text and placeholder tokens. */
+export function parsePlaceholders(text: string): Token[] {
   const tokens: Token[] = []
   let last = 0
-  for (const match of template.matchAll(TOKEN)) {
+  for (const match of text.matchAll(TOKEN)) {
     const index = match.index ?? 0
-    if (index > last) tokens.push({ kind: 'text', value: template.slice(last, index) })
+    if (index > last) tokens.push({ kind: 'text', value: text.slice(last, index) })
     tokens.push({ kind: 'placeholder', path: match[1] ?? '', formatter: match[2] || undefined, raw: match[0] })
     last = index + match[0].length
   }
-  if (last < template.length) tokens.push({ kind: 'text', value: template.slice(last) })
+  if (last < text.length) tokens.push({ kind: 'text', value: text.slice(last) })
   return tokens
 }
 
@@ -52,10 +54,11 @@ function toDate(value: unknown): { date: Date; dateOnly: boolean } | undefined {
   return undefined
 }
 
-function toNumber(value: unknown): number | undefined {
+/** Numbers pass, numeric strings are parsed; `decimalComma` also accepts "1,5" (typed by a person, as in a Condition). */
+function toNumber(value: unknown, decimalComma = false): number | undefined {
   if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
   if (typeof value === 'string' && value.trim() !== '') {
-    const n = Number(value)
+    const n = Number(decimalComma ? value.replace(',', '.') : value)
     return Number.isFinite(n) ? n : undefined
   }
   return undefined
@@ -113,53 +116,34 @@ function stringifyValue(token: Extract<Token, { kind: 'placeholder' }>, data: un
   return applyFormatter(value, token.formatter, ctx, warn)
 }
 
-/** Replaces all placeholders of a template in a single pass; substituted values are never re-scanned. */
-export function resolveTemplate(template: string, data: unknown, ctx: FormatContext, warn: (w: Warning) => void = () => {}): string {
-  return parseTemplate(template)
-    .map((t) => (t.kind === 'text' ? t.value : stringifyValue(t, data, ctx, warn)))
-    .join('')
-}
-
-/** Lists the placeholder paths used in a template (for validation and the Designer's warnings). */
-export function placeholderPaths(template: string): string[] {
-  return parseTemplate(template).flatMap((t) => (t.kind === 'placeholder' ? [t.path] : []))
-}
-
-/** Like resolveTemplate, but `{{page}}` and `{{pages}}` are filled from the given counters. */
-export function resolvePageTemplate(
-  template: string,
-  data: unknown,
-  ctx: FormatContext,
-  page: { page: number; pages: number },
-  warn: (w: Warning) => void = () => {},
-): string {
-  return parseTemplate(template)
+/** Replaces all placeholders of a text in a single pass; substituted values are never re-scanned. */
+export function resolvePlaceholders(text: string, data: unknown, ctx: FormatContext, warn: (w: Warning) => void = () => {}, page?: { page: number; pages: number }): string {
+  return parsePlaceholders(text)
     .map((t) => {
       if (t.kind === 'text') return t.value
-      if (t.path === 'page') return String(page.page)
-      if (t.path === 'pages') return String(page.pages)
+      if (page && t.path === 'page') return String(page.page)
+      if (page && t.path === 'pages') return String(page.pages)
       return stringifyValue(t, data, ctx, warn)
     })
     .join('')
 }
 
-type ConditionInput =
-  | { path: string; op: 'exists' | 'empty' | 'equals' | 'notEquals' | 'gt' | 'gte' | 'lt' | 'lte'; value?: string | number | boolean | undefined }
-  | { all: ConditionInput[] }
-  | { any: ConditionInput[] }
-  | { not: ConditionInput }
-
-function toNumberStrict(v: unknown): number | undefined {
-  if (typeof v === 'number') return Number.isFinite(v) ? v : undefined
-  if (typeof v === 'string' && v.trim() !== '') {
-    const n = Number(v.replace(',', '.'))
-    return Number.isFinite(n) ? n : undefined
-  }
-  return undefined
+/** Lists the placeholder paths used in a text (for validation and the Designer's warnings). */
+export function placeholderPaths(text: string): string[] {
+  return parsePlaceholders(text).flatMap((t) => (t.kind === 'placeholder' ? [t.path] : []))
 }
 
+/** Like resolvePlaceholders, but `{{page}}` and `{{pages}}` are filled from the given counters. */
+export const resolvePagePlaceholders = (
+  text: string,
+  data: unknown,
+  ctx: FormatContext,
+  page: { page: number; pages: number },
+  warn: (w: Warning) => void = () => {},
+): string => resolvePlaceholders(text, data, ctx, warn, page)
+
 /** Evaluates a `visibleWhen` condition (a leaf or all / any / not of conditions) against one Record. */
-export function evaluateCondition(condition: ConditionInput | undefined, data: unknown): boolean {
+export function evaluateCondition(condition: Condition | undefined, data: unknown): boolean {
   if (!condition) return true
   if ('all' in condition) return condition.all.every((c) => evaluateCondition(c, data))
   if ('any' in condition) return condition.any.some((c) => evaluateCondition(c, data))
@@ -176,8 +160,8 @@ export function evaluateCondition(condition: ConditionInput | undefined, data: u
     case 'notEquals':
       return !present || String(value) !== String(condition.value)
     default: {
-      const left = toNumberStrict(value)
-      const right = toNumberStrict(condition.value)
+      const left = toNumber(value, true)
+      const right = toNumber(condition.value, true)
       if (left === undefined || right === undefined) return false
       return condition.op === 'gt' ? left > right : condition.op === 'gte' ? left >= right : condition.op === 'lt' ? left < right : left <= right
     }

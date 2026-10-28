@@ -1,4 +1,4 @@
-import { createDefaultLayout, pageNumberElement, parseLayout, type Data, type FontRegistry, type Layout, type LayoutInput } from '@pdf-layouter/core'
+import { createDefaultLayout, pageNumberElement, pageSizeMm, parseLayout, type Data, type FontRegistry, type Layout, type LayoutInput } from '@pdf-layouter/core'
 import { deleteSelection, duplicateSelection, moveFlow, nudgeSelection } from './actions'
 import { Canvas } from './canvas'
 import { clear, h, isEditable } from './dom'
@@ -34,6 +34,15 @@ export interface DesignerOptions {
   primaryColor?: string
   /** Called after every edit made in the UI with the current self-contained Layout JSON. */
   onChange?: (layout: Layout) => void
+}
+
+const WRAPPER_OPTIONS = ['placeholders', 'sampleData', 'fonts', 'locale', 'images', 'theme', 'grid', 'primaryColor'] as const
+
+/** The options a framework wrapper forwards to the Designer as they are; add new ones here only. */
+export function pickDesignerOptions(source: Partial<Pick<DesignerOptions, (typeof WRAPPER_OPTIONS)[number]>>): Partial<DesignerOptions> {
+  const picked: Record<string, unknown> = {}
+  for (const key of WRAPPER_OPTIONS) if (source[key] !== undefined) picked[key] = source[key]
+  return picked as Partial<DesignerOptions>
 }
 
 type Tab = 'properties' | 'page' | 'preview'
@@ -216,7 +225,7 @@ export class Designer {
     const id = this.store.uniqueId('image')
     this.store.update((d) => {
       d.assets[asset] = { data: image.data, w: image.w, h: image.h }
-      d.static.push(newImage(id, asset, image.w, image.h))
+      d.static.push(newImage(id, asset, image.w, image.h, pageSizeMm(this.store.layout).w))
     })
     this.store.select({ kind: 'static', id })
   }
@@ -256,7 +265,7 @@ export class Designer {
   }
 
   private addFlow(type: Layout['flow'][number]['type']): void {
-    const block = newFlow(type, this.store.catalog?.lists)
+    const block = newFlow(type, this.t, this.store.catalog?.lists)
     this.store.update((d) => void d.flow.push(block))
     this.store.select({ kind: 'flow', index: this.store.layout.flow.length - 1 })
   }
@@ -273,7 +282,7 @@ export class Designer {
         btn('add.text', 'add-text', () => this.addStatic(newText, 'text'), 'text'),
         btn('add.line', 'add-line', () => this.addStatic(newLine, 'line'), 'line'),
         btn('add.rect', 'add-rect', () => this.addStatic(newRect, 'rect'), 'rect'),
-        btn('add.address', 'add-address', () => this.addStatic(newAddress, 'address'), 'address'),
+        btn('add.address', 'add-address', () => this.addStatic((id) => newAddress(id, T), 'address'), 'address'),
         btn('add.pagenumber', 'add-pagenumber', () => this.addStatic((id) => pageNumberElement(this.store.layout.page, id), 'pagenumber'), 'pagenumber'),
       )),
       h('div', null, h('div', { class: 'pld-section-title' }, `${T('add.title')} · ${T('flow.title')}`), h('div', { class: 'pld-btn-grid' },
