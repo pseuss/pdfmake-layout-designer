@@ -107,3 +107,15 @@ describe('layout helpers', () => {
     expect(Object.keys(pruneAssets(layout).assets)).toEqual(['keep'])
   })
 })
+
+describe('guides', () => {
+  it('are optional, kept in the layout and ignored by the PDF output', async () => {
+    expect(parseLayout({ schemaVersion: 1 }).guides).toBeUndefined()
+    const layout = parseLayout({ schemaVersion: 1, guides: { x: [30, 63.5], y: [100] } })
+    expect(layout.guides).toEqual({ x: [30, 63.5], y: [100] })
+    expect(parseLayout({ schemaVersion: 1, guides: { x: [] } }).guides).toEqual({ x: [], y: [] })
+    expect(() => parseLayout({ schemaVersion: 1, guides: { x: ['a'] } })).toThrow(/Invalid layout/)
+    const { generate } = await import('@pdf-layouter/core')
+    expect((await generate(layout, {})).length).toBe((await generate({ schemaVersion: 1 }, {})).length)
+  })
+})

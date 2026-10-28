@@ -24,6 +24,7 @@ export class Store {
   grid = 5
   snap = true
   showGrid = true
+  showGuideLines = true
   private past: Layout[] = []
   private future: Layout[] = []
   private lastEdit = { source: '', key: '', at: 0 }
@@ -148,7 +149,7 @@ export class Store {
     this.emit('view')
   }
 
-  setGrid(options: Partial<Pick<Store, 'grid' | 'snap' | 'showGrid'>>): void {
+  setGrid(options: Partial<Pick<Store, 'grid' | 'snap' | 'showGrid' | 'showGuideLines'>>): void {
     Object.assign(this, options)
     this.emit('view')
   }

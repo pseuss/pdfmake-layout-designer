@@ -78,7 +78,7 @@ export class Designer {
       'div',
       { class: 'pld-root', tabIndex: -1, 'data-testid': 'designer' },
       this.buildLeft(),
-      h('div', { class: 'pld-center' }, this.buildToolbar(readout), this.canvas.stage, this.warningsEl),
+      h('div', { class: 'pld-center' }, this.buildToolbar(readout), this.canvas.element, this.warningsEl),
       this.buildRight(),
       this.fileInput,
     )
@@ -275,6 +275,7 @@ export class Designer {
       mk(T('toolbar.fit'), T('toolbar.fit'), 'zoom-fit', () => this.store.setZoom(this.canvas.fitZoom())),
       mk(T('toolbar.grid'), T('toolbar.grid'), 'toggle-grid', () => this.store.setGrid({ showGrid: !this.store.showGrid })),
       mk(T('toolbar.snap'), T('toolbar.snap'), 'toggle-snap', () => this.store.setGrid({ snap: !this.store.snap })),
+      mk(T('toolbar.guides'), T('toolbar.guides'), 'toggle-guides', () => this.store.setGrid({ showGuideLines: !this.store.showGuideLines })),
       readout,
     )
   }
@@ -285,6 +286,7 @@ export class Designer {
     set('view-follow', this.store.view === 'follow')
     set('toggle-grid', this.store.showGrid)
     set('toggle-snap', this.store.snap)
+    set('toggle-guides', this.store.showGuideLines)
     for (const [id, enabled] of [['undo', this.store.canUndo], ['redo', this.store.canRedo]] as const) {
       const btn = this.root.querySelector<HTMLButtonElement>(`[data-testid="${id}"]`)
       if (btn) btn.disabled = !enabled

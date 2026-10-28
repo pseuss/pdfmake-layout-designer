@@ -568,6 +568,13 @@ export class Inspector {
       this.select(T('page.defaultFont'), this.fontOptions(layout.page.defaults.font), layout.page.defaults.font, (v) => set((d) => void (d.page.defaults.font = v)), 'default-font'),
       this.num(T('page.defaultSize'), layout.page.defaults.size, (v) => set((d) => void (d.page.defaults.size = v)), 'default-size', { min: 1 }),
       this.color(T('page.defaultColor'), layout.page.defaults.color, (v) => set((d) => void (d.page.defaults.color = v ?? '#222222')), 'default-color'),
+      h('button', {
+        type: 'button',
+        class: 'pld-btn',
+        'data-testid': 'clear-guides',
+        disabled: !(layout.guides?.x.length || layout.guides?.y.length),
+        onClick: () => this.store.update((d) => void (d.guides = undefined)),
+      }, T('page.clearGuides', { n: (layout.guides?.x.length ?? 0) + (layout.guides?.y.length ?? 0) })),
       h('div', { class: 'pld-section-title' }, T('page.firstBox')),
       ...box('first'),
       h('div', { class: 'pld-section-title' }, T('page.followBox')),

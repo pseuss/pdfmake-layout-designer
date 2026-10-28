@@ -244,8 +244,8 @@ test.describe('property panel', () => {
     expect(l.page).toMatchObject({ size: 'A5', orientation: 'landscape', footer: { content: 'Blatt {{page}}', align: 'center' }, defaults: { size: 12 }, contentBox: { first: { top: 80 } } })
     const k = await scale(page)
     const size = await page.getByTestId('page').evaluate((el) => [el.clientWidth, el.clientHeight])
-    expect(size[0]).toBeCloseTo(210 * k, 0)
-    expect(size[1]).toBeCloseTo(148 * k, 0)
+    expect(Math.abs(size[0]! - 210 * k)).toBeLessThan(1) // clientWidth/Height are rounded to whole pixels
+    expect(Math.abs(size[1]! - 148 * k)).toBeLessThan(1)
   })
 
   test('zoom, grid and snap toggles', async ({ page }) => {

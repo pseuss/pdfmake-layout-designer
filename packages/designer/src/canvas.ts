@@ -9,8 +9,8 @@ import { previewText } from './warnings'
 
 const MM_PX = 96 / 25.4
 const PT_PX = 96 / 72
-/** Distance in mm within which an edge or centre snaps to a guide. */
-const GUIDE_THRESHOLD = 1.2
+/** Pull of a guide in screen pixels; at low zoom this covers more millimetres. */
+const GUIDE_PULL_PX = 6
 
 interface Session {
   startX: number
@@ -25,7 +25,11 @@ interface Session {
 const FLOW_HEIGHT_MM: Record<FlowBlock['type'], number> = { text: 14, table: 40, totals: 20, dynamicSections: 30, pageBreak: 6 }
 
 export class Canvas {
+  /** Rulers + stage; this is what the Designer puts into its centre column. */
+  readonly element: HTMLElement
   readonly stage: HTMLElement
+  private hRuler: HTMLElement
+  private vRuler: HTMLElement
   private page: HTMLElement
   private session: Session | undefined
 
@@ -36,6 +40,13 @@ export class Canvas {
   ) {
     this.page = h('div', { class: 'pld-page', 'data-testid': 'page' })
     this.stage = h('div', { class: 'pld-stage', tabIndex: 0, 'data-testid': 'stage' }, this.page)
+    this.hRuler = h('div', { class: 'pld-ruler pld-ruler-h', 'data-testid': 'ruler-h', title: t('ruler.hint') })
+    this.vRuler = h('div', { class: 'pld-ruler pld-ruler-v', 'data-testid': 'ruler-v', title: t('ruler.hint') })
+    this.element = h('div', { class: 'pld-canvas' }, h('div', { class: 'pld-ruler-corner' }), this.hRuler, this.vRuler, this.stage)
+    // dragging out of a ruler creates a guide: the horizontal ruler makes horizontal lines (y), the vertical one vertical lines (x)
+    this.hRuler.addEventListener('pointerdown', (e) => e.button === 0 && this.startGuideDrag(e, 'y'))
+    this.vRuler.addEventListener('pointerdown', (e) => e.button === 0 && this.startGuideDrag(e, 'x'))
+    this.stage.addEventListener('scroll', () => this.renderRulers())
     // dragging on empty space draws a selection rectangle; a plain click deselects
     this.page.addEventListener('pointerdown', (e) => {
       if (e.button === 0 && (e.target === this.page || (e.target as HTMLElement).classList.contains('pld-grid'))) this.startMarquee(e)
@@ -53,6 +64,10 @@ export class Canvas {
   private appliesTo(rule: StaticElement['pages']): boolean {
     const first = this.store.view === 'first'
     return pageRuleMatches(rule, first, !first)
+  }
+
+  private get guideThreshold(): number {
+    return Math.max(1.2, GUIDE_PULL_PX / this.scale)
   }
 
   private get scale(): number {
@@ -105,6 +120,94 @@ export class Canvas {
 
     for (const el of layout.static) this.page.append(this.renderStatic(el, layout))
     this.page.append(this.renderContentBox(layout, view, selection.kind === 'contentBox'))
+    if (this.store.showGuideLines) this.renderUserGuides(layout, page)
+    this.renderRulers()
+  }
+
+  // ---- rulers and user guides ---------------------------------------------------------
+
+  private renderUserGuides(layout: Layout, page: { w: number; h: number }): void {
+    const make = (axis: 'x' | 'y', value: number, index: number) => {
+      const vertical = axis === 'x'
+      const guide = h('div', {
+        class: `pld-uguide ${vertical ? 'is-v' : 'is-h'}`,
+        'data-testid': `uguide-${axis}-${index}`,
+        'data-axis': axis,
+        'data-index': index,
+        'data-mm': value,
+        title: `${value} mm`,
+        style: vertical ? { left: `${round(value * this.scale) - 3}px`, top: '0', height: this.px(page.h) } : { top: `${round(value * this.scale) - 3}px`, left: '0', width: this.px(page.w) },
+      })
+      guide.addEventListener('pointerdown', (e) => e.button === 0 && this.startGuideDrag(e, axis, index))
+      guide.addEventListener('dblclick', () => this.removeGuide(axis, index))
+      this.page.append(guide)
+    }
+    layout.guides?.x.forEach((v, i) => make('x', v, i))
+    layout.guides?.y.forEach((v, i) => make('y', v, i))
+  }
+
+  private removeGuide(axis: 'x' | 'y', index: number): void {
+    this.store.update((d) => void d.guides?.[axis].splice(index, 1), 'canvas')
+  }
+
+  /** Draws both rulers (mm, scaled with the zoom) aligned with the page, whatever the scroll position. */
+  private renderRulers(): void {
+    const page = pageSizeMm(this.store.layout)
+    const k = this.scale
+    const pr = this.page.getBoundingClientRect()
+    const fill = (ruler: HTMLElement, vertical: boolean, offset: number, length: number) => {
+      clear(ruler)
+      const inner = h('div', { class: 'pld-ruler-inner' })
+      const along = vertical ? 'top' : 'left'
+      const size = vertical ? 'height' : 'width'
+      Object.assign(inner.style, { [along]: `${offset}px`, [size]: `${length * k}px` })
+      const dir = vertical ? 'to bottom' : 'to right'
+      const tick = (mm: number, thickness: string) => `linear-gradient(${dir}, #9ca3af 1px, transparent 1px) ${vertical ? `100% 0 / ${thickness} ${mm * k}px repeat-y` : `0 100% / ${mm * k}px ${thickness} repeat-x`}`
+      inner.style.background = `${tick(10, '70%')}, ${tick(5, '35%')}`
+      for (let mm = 0; mm <= length; mm += 10) {
+        inner.append(h('span', { class: 'pld-ruler-label', style: { [along]: `${mm * k + 2}px` } }, String(mm)))
+      }
+      ruler.append(inner)
+    }
+    const hr = this.hRuler.getBoundingClientRect()
+    const vr = this.vRuler.getBoundingClientRect()
+    fill(this.hRuler, false, pr.left - hr.left, page.w)
+    fill(this.vRuler, true, pr.top - vr.top, page.h)
+  }
+
+  /** Creates a guide (`index` undefined) or moves an existing one; dropping it outside the page deletes it. */
+  private startGuideDrag(e: PointerEvent, axis: 'x' | 'y', index?: number): void {
+    const page = pageSizeMm(this.store.layout)
+    const limit = axis === 'x' ? page.w : page.h
+    const { grid, snap } = this.store
+    const valueAt = (ev: PointerEvent) => {
+      const p = this.pointToMm(ev)
+      const raw = axis === 'x' ? p.x : p.y
+      return { value: round(snap ? snapValue(raw, grid, true) : Math.round(raw * 2) / 2), inside: raw >= 0 && raw <= limit }
+    }
+    const temp = h('div', { class: `pld-uguide is-temp ${axis === 'x' ? 'is-v' : 'is-h'}`, 'data-testid': 'uguide-temp' })
+    const existing = index === undefined ? undefined : this.page.querySelector<HTMLElement>(`[data-testid="uguide-${axis}-${index}"]`)
+    this.beginSession(e, {
+      live: (_dx, _dy, ev) => {
+        const { value, inside } = valueAt(ev)
+        if (!temp.isConnected) this.page.append(temp)
+        if (existing) existing.style.display = 'none'
+        const at = `${round(value * this.scale) - 3}px`
+        Object.assign(temp.style, axis === 'x' ? { left: at, top: '0', height: this.px(page.h), opacity: inside ? '1' : '.3' } : { top: at, left: '0', width: this.px(page.w), opacity: inside ? '1' : '.3' })
+        this.readout.textContent = `${axis === 'x' ? 'x' : 'y'} ${value.toFixed(1)} mm`
+      },
+      commit: (_dx, _dy, ev) => {
+        const { value, inside } = valueAt(ev)
+        if (index === undefined && !inside) return // dropped outside the page: no guide
+        this.store.update((d) => {
+          const guides = (d.guides ??= { x: [], y: [] })
+          if (index === undefined) {
+            if (!guides[axis].includes(value)) guides[axis].push(value)
+          } else if (inside) guides[axis][index] = value
+          else guides[axis].splice(index, 1)
+        }, 'canvas')
+      },
+    })
   }
 
   // ---- static elements ---------------------------------------------------------
@@ -293,7 +396,7 @@ export class Canvas {
       window.removeEventListener('pointercancel', up)
       this.session = undefined
       this.clearGuides()
-      this.page.querySelectorAll('.pld-marquee').forEach((m) => m.remove())
+      this.page.querySelectorAll('.pld-marquee, .pld-uguide.is-temp').forEach((m) => m.remove())
       if (!s.moved) s.tap?.()
       if (s.moved) s.commit((ev.clientX - s.startX) / this.scale, (ev.clientY - s.startY) / this.scale, ev)
     }
@@ -371,7 +474,7 @@ export class Canvas {
       if (!targets || ev.altKey) return { rect: r, x: [], y: [] }
       // no guides while the aspect ratio of an image is locked: they would distort it
       if (handle && aspect) return { rect: r, x: [], y: [] }
-      return handle ? snapResizeToGuides(r, handle as Handle, targets, GUIDE_THRESHOLD, 2) : snapMoveToGuides(r, targets, GUIDE_THRESHOLD)
+      return handle ? snapResizeToGuides(r, handle as Handle, targets, this.guideThreshold, 2) : snapMoveToGuides(r, targets, this.guideThreshold)
     }
     this.beginSession(e, {
       live: (dx, dy, ev) => {
@@ -445,7 +548,7 @@ export class Canvas {
     const { layout, view } = this.store
     const page = pageSizeMm(layout)
     const others = layout.static.filter((x) => !excludeIds.includes(x.id)).map(staticRect)
-    return guideTargets(others, page, boxToRect(layout.page.contentBox[view], page))
+    return guideTargets(others, page, boxToRect(layout.page.contentBox[view], page), layout.guides)
   }
 
   private showGuides(xs: number[], ys: number[]): void {
@@ -471,7 +574,7 @@ export class Canvas {
     const targets = snap ? this.guideTargetsFor(ids) : undefined
     const delta = (dx: number, dy: number, ev: PointerEvent) => {
       const m = moveRect(union, dx, dy, grid, snap)
-      const g = targets && !ev.altKey ? snapMoveToGuides(m, targets, GUIDE_THRESHOLD) : { rect: m, x: [], y: [] }
+      const g = targets && !ev.altKey ? snapMoveToGuides(m, targets, this.guideThreshold) : { rect: m, x: [], y: [] }
       return { dx: round(g.rect.x - union.x), dy: round(g.rect.y - union.y), g }
     }
     const nodes = els.map((x) => this.page.querySelector<HTMLElement>(`[data-id="${CSS.escape(x.id)}"]`)).filter((n): n is HTMLElement => !!n)

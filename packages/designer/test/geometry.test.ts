@@ -90,3 +90,12 @@ describe('snapping guides', () => {
     expect(alignDeltas(rects, 'middle')).toEqual([{ dx: 0, dy: 20 }, { dx: 0, dy: -10 }])
   })
 })
+
+describe('user guides as snap targets', () => {
+  it('adds the guides placed by the user to the alignment targets', () => {
+    const t = guideTargets([], { w: 210, h: 297 }, { x: 25, y: 95, w: 165, h: 172 }, { x: [63], y: [120.5] })
+    expect(t.xs).toContain(63)
+    expect(t.ys).toContain(120.5)
+    expect(snapMoveToGuides({ x: 62, y: 10, w: 20, h: 10 }, t, 1.5).rect.x).toBe(63)
+  })
+})

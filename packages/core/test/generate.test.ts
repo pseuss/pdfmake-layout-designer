@@ -230,6 +230,86 @@ describe('fonts per element (document font is the default)', () => {
   })
 })
 
+describe('dynamic sections: the Host App sends any sequence of tables and text blocks', () => {
+  const columns = [{ field: 'was', title: 'Posten' }, { field: 'betrag', title: 'Betrag', align: 'right', format: 'currency' }]
+  const table = (name: string) => ({ type: 'table', columns, rows: [{ was: `${name}-A`, betrag: 10 }, { was: `${name}-B`, betrag: 20 }] })
+  const layout: LayoutInput = {
+    schemaVersion: 1,
+    flow: [
+      { type: 'text', content: 'FEST-VORNE' },
+      { type: 'dynamicSections', source: 'abschnitte', styles: { table: { headerFill: '#EEEEEE' }, text: { margin: [0, 6, 0, 6] } } },
+      { type: 'text', content: 'FEST-HINTEN {{kunde.name}}' },
+    ],
+  }
+  const textOf = async (data: Record<string, unknown>) => (await readPdf(await generate(layout, data))).pages.map((p) => p.text).join(' ')
+  const order = (text: string, parts: string[]) => parts.map((p) => text.indexOf(p))
+
+  it('table, two text blocks, table – in exactly that order, between the fixed blocks', async () => {
+    const text = await textOf({
+      kunde: { name: 'Muster' },
+      abschnitte: [table('T1'), { type: 'text', content: 'TEXT-EINS' }, { type: 'text', content: [{ text: 'TEXT-', bold: true }, { text: 'ZWEI' }] }, table('T2')],
+    })
+    const at = order(text, ['FEST-VORNE', 'T1-A', 'T1-B', 'TEXT-EINS', 'ZWEI', 'T2-A', 'T2-B', 'FEST-HINTEN Muster'])
+    expect(at.every((i) => i >= 0)).toBe(true)
+    expect([...at].sort((a, b) => a - b)).toEqual(at)
+    expect(text.replace(/\u00a0/g, ' ')).toContain('10,00 €')
+  })
+
+  it('any length and order: none, one, many, text only, tables only', async () => {
+    expect(await textOf({ kunde: { name: 'M' }, abschnitte: [] })).not.toContain('Posten')
+    expect(await textOf({ kunde: { name: 'M' }, abschnitte: [table('X')] })).toContain('X-A')
+    const many = Array.from({ length: 12 }, (_, i) => (i % 3 === 2 ? table(`TAB${i}`) : { type: 'text', content: `ABSATZ${i}` }))
+    const text = await textOf({ kunde: { name: 'M' }, abschnitte: many })
+    many.forEach((m, i) => expect(text).toContain(m.type === 'text' ? `ABSATZ${i}` : `TAB${i}-A`))
+    const at = order(text, many.map((m, i) => (m.type === 'text' ? `ABSATZ${i}` : `TAB${i}-A`)))
+    expect([...at].sort((a, b) => a - b)).toEqual(at)
+  })
+
+  it('text items carry rich text (lists, formatting) and placeholders, tables bring their own columns', async () => {
+    const text = await textOf({
+      kunde: { name: 'Muster' },
+      abschnitte: [
+        { type: 'text', content: [{ type: 'paragraph', runs: [{ text: 'Hallo {{kunde.name}}' }] }, { type: 'list', ordered: false, items: [[{ text: 'PUNKT-1' }], [{ text: 'PUNKT-2' }]] }] },
+        { type: 'table', columns: [{ field: 'a', title: 'Alpha' }, { field: 'b', title: 'Beta', width: 30, align: 'right' }, { field: 'c', title: 'Gamma', format: 'date' }], rows: [{ a: 'x', b: 'y', c: '2026-10-28' }] },
+      ],
+    })
+    expect(text).toContain('Hallo Muster')
+    expect(text).toContain('PUNKT-2')
+    expect(text).toContain('Alpha')
+    expect(text).toContain('28.10.2026')
+  })
+
+  it('several dynamic blocks can read different lists, and long sequences break across pages', async () => {
+    const two: LayoutInput = { schemaVersion: 1, flow: [{ type: 'dynamicSections', source: 'kopf' }, { type: 'text', content: 'MITTE' }, { type: 'dynamicSections', source: 'fuss' }] }
+    const rows = Array.from({ length: 90 }, (_, i) => ({ was: `ZEILE${i}`, betrag: i }))
+    const info = await readPdf(await generate(two, { kopf: [{ type: 'text', content: 'KOPF-TEXT' }], fuss: [{ type: 'table', columns, rows }, { type: 'text', content: 'ENDE-TEXT' }] }))
+    const text = info.pages.map((p) => p.text).join(' ')
+    expect(info.numPages).toBeGreaterThan(1)
+    expect(order(text, ['KOPF-TEXT', 'MITTE', 'ZEILE0', 'ZEILE89', 'ENDE-TEXT']).every((v, i, a) => v >= 0 && (i === 0 || v > a[i - 1]!))).toBe(true)
+    expect(info.pages[1]!.text).toContain('Posten') // the dynamic table repeats its header
+  })
+
+  it('works per record in a batch: every letter gets its own sequence', async () => {
+    const records = [
+      { kunde: { name: 'A' }, abschnitte: [{ type: 'text', content: 'NUR-TEXT' }] },
+      { kunde: { name: 'B' }, abschnitte: [table('R2'), { type: 'text', content: 'DANACH' }, table('R2b')] },
+    ]
+    const info = await readPdf(await generateBatch(layout, records))
+    expect(info.numPages).toBe(2)
+    expect(info.pages[0]!.text).toContain('NUR-TEXT')
+    expect(info.pages[0]!.text).not.toContain('R2-A')
+    expect(order(info.pages[1]!.text, ['R2-A', 'DANACH', 'R2b-A']).every((v, i, a) => v >= 0 && (i === 0 || v > a[i - 1]!))).toBe(true)
+  })
+
+  it('invalid items are skipped with a warning instead of breaking the document', async () => {
+    const warnings: Warning[] = []
+    const info = await readPdf(await generate(layout, { kunde: { name: 'M' }, abschnitte: [{ type: 'text', content: 'OK-1' }, { type: 'video' }, { type: 'table', columns: [], rows: [] }, { type: 'text', content: 'OK-2' }] }, { onWarning: (w) => warnings.push(w) }))
+    expect(info.pages[0]!.text).toContain('OK-1')
+    expect(info.pages[0]!.text).toContain('OK-2')
+    expect(warnings.filter((w) => w.code === 'invalid-value')).toHaveLength(2)
+  })
+})
+
 describe('visibleWhen', () => {
   const layout: LayoutInput = {
     schemaVersion: 1,

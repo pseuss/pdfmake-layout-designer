@@ -96,9 +96,19 @@ async function save() { await $fetch('/api/layout', { method: 'PUT', body: layou
 
 ## Designer features
 
-Canvas with zoom, grid and snap, **smart guides** (edges and centres of other elements, the page and the content box; hold Alt to disable), drag/resize, **multi-select**
+Canvas with zoom, grid and snap, **rulers (mm) with guides** dragged out of them (top ruler → horizontal, left ruler → vertical; drag a guide to move it, off the page or double-click to delete; they are saved in the layout as `guides` and never printed), **smart guides** (edges and centres of other elements, the page, the content box and your own guides; hold Alt to disable), drag/resize, **multi-select**
 (shift/ctrl-click, Ctrl+A or a rubber-band rectangle dragged on empty space or on the stationery; move, align, duplicate, delete together), **undo/redo** (Ctrl+Z, Ctrl+Shift+Z / Ctrl+Y, 100 steps, `designer.undo()` / `redo()`),
 property panel, layer order, flow list with drag-to-reorder, rich text with colour, size and alignment, placeholder picker, live preview, image optimisation, warnings.
+
+## Dynamic content per document
+
+A flow block of type `dynamicSections` renders whatever sequence your app sends in `data[source]`: a table, two text blocks, another table – any order, any length (also none).
+Each item is `{ "type": "text", "content": … }` (plain text, runs, or rich blocks with lists, placeholders allowed) or `{ "type": "table", "columns": [...], "rows": [...] }` (every table brings its own columns).
+The layout only supplies the styling (`styles.table`, `styles.text`) and the position between its fixed blocks; long sequences break across pages and tables repeat their header.
+You can use several `dynamicSections` blocks reading different keys, and in a batch every record carries its own sequence.
+
+**Form letters:** put the whole letter in the layout – rich text next to `{{placeholders}}`, address field, logo – and send one data object per recipient.
+For recipient-specific passages use `visibleWhen` on a block, or a `dynamicSections` block if the passages differ in number and order.
 
 ## Fonts per element
 

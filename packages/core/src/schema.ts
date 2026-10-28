@@ -248,6 +248,8 @@ export const LayoutSchema = z.object({
   locale: z.string().default('de-DE'),
   currency: z.string().length(3).default('EUR'),
   page: PageSchema.default(() => PageSchema.parse({})),
+  /** Alignment guides of the Designer (mm); they are design aids and never rendered into the PDF. */
+  guides: z.object({ x: z.array(mm).default(() => []), y: z.array(mm).default(() => []) }).optional(),
   assets: z.record(z.string(), AssetSchema).default(() => ({})),
   static: z.array(StaticElementSchema).default(() => []),
   flow: z.array(FlowBlockSchema).default(() => []),

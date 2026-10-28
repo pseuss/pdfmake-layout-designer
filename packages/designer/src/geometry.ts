@@ -78,9 +78,9 @@ export interface GuideTargets {
 }
 
 /** Edges and centres other elements, the page and the content box offer for alignment (mm). */
-export function guideTargets(rects: Rect[], page: { w: number; h: number }, box: Rect): GuideTargets {
-  const xs = new Set<number>([0, page.w / 2, page.w, box.x, box.x + box.w])
-  const ys = new Set<number>([0, page.h / 2, page.h, box.y, box.y + box.h])
+export function guideTargets(rects: Rect[], page: { w: number; h: number }, box: Rect, userGuides: { x?: number[]; y?: number[] } = {}): GuideTargets {
+  const xs = new Set<number>([0, page.w / 2, page.w, box.x, box.x + box.w, ...(userGuides.x ?? [])])
+  const ys = new Set<number>([0, page.h / 2, page.h, box.y, box.y + box.h, ...(userGuides.y ?? [])])
   for (const r of rects) {
     ;[r.x, r.x + r.w / 2, r.x + r.w].forEach((v) => xs.add(round(v)))
     ;[r.y, r.y + r.h / 2, r.y + r.h].forEach((v) => ys.add(round(v)))
