@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { generate, generateBatch, mmToPt, RecordOverflowError, type LayoutInput, type Warning } from '@pdf-layouter/core'
+import { compile, generate, generateBatch, mmToPt, RecordOverflowError, type LayoutInput, type Warning } from '@pdf-layouter/core'
 import { invoiceData, invoiceLayout, serialLayout, serialRecords } from '../../../fixtures/data'
 import { loadAssets, nodeFontRegistry } from '../../../fixtures/node'
 import { readPdf } from './pdf'
@@ -189,6 +189,95 @@ describe('Use case 2: form letters (S1–S3)', () => {
     layout.static = [{ id: 'bg', type: 'image', asset: 'img_bg', x: 0, y: 0, w: 210, h: 297, pages: 'all' }, ...(layout.static ?? [])]
     const info = await readPdf(await generateBatch(layout, serialRecords(4), { fonts }))
     expect(info.pages.map((p) => p.images)).toEqual([1, 1, 1, 1])
+  })
+})
+
+describe('fonts per element (document font is the default)', () => {
+  const base: LayoutInput = {
+    schemaVersion: 1,
+    page: { defaults: { font: 'Inter', size: 10, color: '#222222' }, footer: { content: 'Fuß {{page}}', font: 'Roboto' } } as never,
+    static: [{ id: 't', type: 'text', x: 20, y: 20, w: 100, content: 'Statisch Merri', font: 'Merriweather' }],
+    flow: [
+      { type: 'text', content: 'Fließtext erbt Inter' },
+      { type: 'text', content: 'Fließtext Merri', font: 'Merriweather' },
+      { type: 'table', source: 'rows', font: 'Merriweather', columns: [{ field: 'a', title: 'Spalte' }] },
+      { type: 'totals', font: 'Roboto', rows: [{ label: 'Summe', value: '1' }] },
+    ],
+  }
+
+  it('applies a block or element font only to that element and inherits the document font otherwise', async () => {
+    const warnings: Warning[] = []
+    const info = await readPdf(await generate(base, { rows: [{ a: 'x' }] }, { fonts, onWarning: (w) => warnings.push(w) }))
+    expect(info.raw).toMatch(/\+Inter-Regular/)
+    expect(info.raw).toMatch(/\+Merriweather-Regular/)
+    expect(info.raw).toMatch(/\+Roboto-Regular/)
+    expect(warnings).toEqual([])
+  })
+
+  it('puts the right font on the right compiled node', () => {
+    const doc = compile(base, [{ rows: [{ a: 'x' }] }]).docDefinition
+    const stack = doc.content[0].stack as { font?: string }[]
+    // start marker, inherited text, Merriweather text, Merriweather table, Roboto totals, end marker
+    expect(stack.map((n) => n.font)).toEqual([undefined, undefined, 'Merriweather', 'Merriweather', 'Roboto', undefined])
+    expect(doc.defaultStyle.font).toBe('Inter')
+    expect(doc.footer(1, 1).font).toBe('Roboto')
+  })
+
+  it('warns once for an unknown per-element font and falls back to Roboto', async () => {
+    const warnings: Warning[] = []
+    await generate({ schemaVersion: 1, flow: [{ type: 'text', content: 'x', font: 'Nope' }] }, {}, { fonts, onWarning: (w) => warnings.push(w) })
+    expect(warnings.filter((w) => w.code === 'unknown-font')).toHaveLength(1)
+  })
+})
+
+describe('visibleWhen', () => {
+  const layout: LayoutInput = {
+    schemaVersion: 1,
+    static: [{ id: 'b', type: 'text', x: 20, y: 20, w: 100, content: 'STATIC-DRAFT', visibleWhen: { path: 'entwurf', op: 'exists' } }],
+    flow: [
+      { type: 'text', content: 'IMMER' },
+      { type: 'text', content: 'NURDE', visibleWhen: { path: 'land', op: 'equals', value: 'DE' } },
+      { type: 'text', content: 'NICHTDE', visibleWhen: { path: 'land', op: 'notEquals', value: 'DE' } },
+      { type: 'text', content: 'LEER', visibleWhen: { path: 'notiz', op: 'empty' } },
+    ],
+  }
+
+  it('shows static elements and flow blocks only when the condition holds, per record', async () => {
+    const records = [{ land: 'DE', entwurf: true, notiz: 'x' }, { land: 'AT', notiz: '' }]
+    const info = await readPdf(await generateBatch(layout, records))
+    expect(info.pages[0]!.text).toContain('STATIC-DRAFT')
+    expect(info.pages[0]!.text).toContain('NURDE')
+    expect(info.pages[0]!.text).not.toContain('NICHTDE')
+    expect(info.pages[0]!.text).not.toContain('LEER')
+    expect(info.pages[1]!.text).not.toContain('STATIC-DRAFT')
+    expect(info.pages[1]!.text).toContain('NICHTDE')
+    expect(info.pages[1]!.text).toContain('LEER')
+    expect(info.pages[1]!.text).not.toContain('NURDE')
+    expect(info.pages[1]!.text).toContain('IMMER')
+  })
+})
+
+describe("generateBatch strategy 'merge' (pdf-lib fallback)", () => {
+  it('renders every record on its own and joins them: same pages and text as the single-document strategy', async () => {
+    const layout = serialLayout(assets)
+    const long = Array.from({ length: 60 }, (_, i) => `Absatz ${i + 1}`).join('\n\n')
+    const records = serialRecords(4).map((r, i) => (i === 1 ? { ...r, extra: long } : r))
+    layout.flow = [...(layout.flow ?? []), { type: 'text', content: '{{extra}}' }]
+    const single = await readPdf(await generateBatch(layout, records, { fonts }))
+    const merged = await readPdf(await generateBatch(layout, records, { fonts, strategy: 'merge' }))
+    expect(merged.numPages).toBe(single.numPages)
+    merged.pages.forEach((p, i) => expect(p.text).toBe(single.pages[i]!.text))
+    expect(merged.pages.map((p) => p.images)).toEqual(single.pages.map((p) => p.images))
+  })
+
+  it('keeps onePagePerRecord semantics and rejects options it cannot honour', async () => {
+    const layout = serialLayout(assets)
+    layout.flow = [...(layout.flow ?? []), { type: 'text', content: '{{extra}}' }]
+    const record = { ...serialRecords(1)[0]!, extra: Array.from({ length: 80 }, (_, k) => `Zeile ${k}`).join('\n\n') }
+    await expect(generateBatch(layout, [record], { fonts, strategy: 'merge', onePagePerRecord: true })).rejects.toBeInstanceOf(RecordOverflowError)
+    await expect(generateBatch(layout, [serialRecords(1)[0]!], { fonts, strategy: 'merge', pdfa: 'PDF/A-3b' })).rejects.toThrow(/does not support pdfa/)
+    const ok = await readPdf(await generateBatch(serialLayout(assets), serialRecords(3), { fonts, strategy: 'merge', onePagePerRecord: true }))
+    expect(ok.numPages).toBe(3)
   })
 })
 

@@ -1,6 +1,7 @@
-import { PAGE_SIZES_MM, type Column, type FlowBlock, type StaticElement } from '@pdf-layouter/core'
+import { PAGE_SIZES_MM, type Column, type Condition, type FlowBlock, type StaticElement } from '@pdf-layouter/core'
 import type { FontRegistry } from '@pdf-layouter/core'
-import { deleteSelection, duplicateSelection, moveFlow, moveLayer } from './actions'
+import { alignSelection, deleteSelection, duplicateSelection, moveFlow, moveLayer } from './actions'
+import type { Align } from './geometry'
 import { clear, h, toHex6 } from './dom'
 import type { Translator } from './i18n'
 import { createPicker, insertAtCursor } from './picker'
@@ -103,6 +104,48 @@ export class Inspector {
     return names.map((n) => [n, n])
   }
 
+  /** Font select whose first entry means "inherit the document font". */
+  private fontField(current: string | undefined, onChange: (v: string | undefined) => void, testId = 'font'): HTMLElement {
+    const doc = this.store.layout.page.defaults.font
+    const options: [string, string][] = [['', this.t('prop.fontInherit', { font: doc })], ...this.fontOptions(current)]
+    return this.select(this.t('prop.font'), options, current ?? '', (v) => onChange(v || undefined), testId)
+  }
+
+  /** `visibleWhen` editor: operator, placeholder path and compare value. */
+  private conditionFields(cond: Condition | undefined, onChange: (c: Condition | undefined) => void, rerender: () => void): HTMLElement {
+    const T = this.t
+    const ops: [string, string][] = [['', T('cond.always')], ['exists', T('cond.exists')], ['empty', T('cond.empty')], ['equals', T('cond.equals')], ['notEquals', T('cond.notEquals')]]
+    const group = h('div', { class: 'pld-group', 'data-testid': 'visible-when' })
+    group.append(
+      this.select(T('prop.visibleWhen'), ops, cond?.op ?? '', (v) => {
+        const first = this.store.catalog?.groups[0]
+        const fallback = first?.fields[0] ? `${first.key}.${first.fields[0].key}` : 'feld'
+        onChange(v ? { path: cond?.path || fallback, op: v as Condition['op'], value: cond?.value } : undefined)
+        rerender()
+      }, 'cond-op'),
+    )
+    if (cond) {
+      // the inputs below stay alive while the user types, so they must edit the latest condition, not the one of the first render
+      let current: Condition = cond
+      const emit = (next: Condition) => {
+        current = next
+        onChange(next)
+      }
+      const listId = `pld-paths-${Math.random().toString(36).slice(2, 8)}`
+      const path = this.text(T('prop.condPath'), cond.path, (v) => v.trim() && emit({ ...current, path: v.trim() }), 'cond-path')
+      const input = path.querySelector('input')!
+      input.setAttribute('list', listId)
+      group.append(
+        path,
+        h('datalist', { id: listId }, ...(this.store.catalog?.groups ?? []).flatMap((g) => g.fields.map((f) => h('option', { value: `${g.key}.${f.key}` })))),
+      )
+      if (cond.op === 'equals' || cond.op === 'notEquals') {
+        group.append(this.text(T('prop.condValue'), cond.value === undefined ? '' : String(cond.value), (v) => emit({ ...current, value: v }), 'cond-value'))
+      }
+    }
+    return group
+  }
+
   private textarea(label: string, value: string, onChange: (v: string) => void, testId: string): HTMLElement {
     const area = h('textarea', { class: 'pld-textarea', value, 'data-testid': testId })
     area.addEventListener('input', () => onChange(area.value))
@@ -153,9 +196,21 @@ export class Inspector {
     } else if (sel.kind === 'flow') {
       const block = this.store.layout.flow[sel.index]
       if (block) this.renderFlow(block, sel.index)
+    } else if (sel.kind === 'multi') {
+      this.renderMulti(sel.ids.length)
     } else {
       this.renderContentBox()
     }
+  }
+
+  private renderMulti(count: number): void {
+    const aligns: [Align, string][] = [['left', '⇤'], ['center', '↔'], ['right', '⇥'], ['top', '⤒'], ['middle', '↕'], ['bottom', '⤓']]
+    this.propsEl.append(
+      h('strong', { 'data-testid': 'panel-title' }, this.t('multi.title', { n: count })),
+      this.actions(),
+      h('div', { class: 'pld-section-title' }, this.t('multi.align')),
+      h('div', { class: 'pld-row', 'data-testid': 'align-row' }, ...aligns.map(([a, symbol]) => h('button', { type: 'button', class: 'pld-btn pld-btn-sm', title: this.t(`align.${a}` as 'align.left'), 'aria-label': this.t(`align.${a}` as 'align.left'), 'data-testid': `align-${a}`, onClick: () => alignSelection(this.store, a) }, symbol))),
+    )
   }
 
   private renderContentBox(): void {
@@ -191,7 +246,7 @@ export class Inspector {
       return f
     }
     const textProps = (e: El<'text'> | El<'address'>) => [
-      this.select(T('prop.font'), this.fontOptions(e.font), e.font ?? 'Roboto', (v) => this.editStatic<'text'>(id, (t) => void (t.font = v)), 'font'),
+      this.fontField(e.font, (v) => this.editStatic<'text'>(id, (t) => void (t.font = v))),
       this.num(T('prop.size'), e.size ?? 10, (v) => this.editStatic<'text'>(id, (t) => void (t.size = v)), 'size', { min: 1, step: 0.5 }),
       this.color(T('prop.color'), e.color, (v) => this.editStatic<'text'>(id, (t) => void (t.color = v)), 'color'),
       this.check(T('prop.bold'), e.bold ?? false, (v) => this.editStatic<'text'>(id, (t) => void (t.bold = v)), 'bold'),
@@ -244,6 +299,13 @@ export class Inspector {
         )
         break
     }
+    this.propsEl.append(
+      this.conditionFields(
+        el.visibleWhen,
+        (c) => this.editStatic(id, (t) => void (t.visibleWhen = c)),
+        () => this.render(),
+      ),
+    )
   }
 
   // ---- flow blocks ----------------------------------------------------------------------------
@@ -253,6 +315,9 @@ export class Inspector {
     const labels = { text: 'flow.text', table: 'flow.table', totals: 'flow.totals', dynamicSections: 'flow.dynamicSections', pageBreak: 'flow.pageBreak' } as const
     this.propsEl.append(h('strong', { 'data-testid': 'panel-title' }, `${T(labels[block.type])} · #${index + 1}`), this.actions())
 
+    if (block.type !== 'pageBreak') {
+      this.propsEl.append(this.fontField(block.font, (v) => this.editFlow<'text'>(index, (b) => void (b.font = v))))
+    }
     switch (block.type) {
       case 'text': {
         const editor = new RichTextEditor(block.content, T, (blocks) => this.editFlow<'text'>(index, (b) => void (b.content = blocks)))
@@ -277,6 +342,13 @@ export class Inspector {
       case 'pageBreak':
         break
     }
+    this.propsEl.append(
+      this.conditionFields(
+        block.visibleWhen,
+        (c) => this.editFlow<'text'>(index, (b) => void (b.visibleWhen = c)),
+        () => this.render(),
+      ),
+    )
   }
 
   private renderTable(block: Block<'table'>, index: number): void {
@@ -397,6 +469,7 @@ export class Inspector {
       ...box('follow'),
       h('div', { class: 'pld-section-title' }, T('page.footer')),
       this.text(T('page.footer'), layout.page.footer?.content ?? '', (v) => set((d) => void (d.page.footer = v ? { content: v, align: d.page.footer?.align ?? 'right', size: d.page.footer?.size ?? 8 } : undefined)), 'footer'),
+      this.fontField(layout.page.footer?.font, (v) => set((d) => void (d.page.footer && (d.page.footer.font = v))), 'footer-font'),
       this.select(T('page.footerAlign'), (['left', 'center', 'right'] as const).map((a) => [a, T(`align.${a}` as const)] as const), layout.page.footer?.align ?? 'right', (v) => set((d) => void (d.page.footer && (d.page.footer.align = v as 'left' | 'center' | 'right'))), 'footer-align'),
     )
   }

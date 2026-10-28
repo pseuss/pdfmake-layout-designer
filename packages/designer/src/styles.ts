@@ -31,6 +31,7 @@ export const CSS = `
 .pld-el-address .pld-tag{position:absolute;right:2px;top:1px;font:10px var(--pld-font);color:var(--pld-muted)}
 .pld-el-image img,.pld-el-image svg{width:100%;height:100%;display:block;pointer-events:none}
 .pld-el-line svg{width:100%;height:100%;overflow:visible;display:block;pointer-events:none}
+.pld-guide{position:absolute;background:#e11d8c;pointer-events:none;z-index:6}
 .pld-handle{position:absolute;width:10px;height:10px;background:#fff;border:2px solid var(--pld-accent);border-radius:2px;z-index:5}
 .pld-handle[data-handle=nw]{left:-6px;top:-6px;cursor:nwse-resize}.pld-handle[data-handle=n]{left:calc(50% - 5px);top:-6px;cursor:ns-resize}
 .pld-handle[data-handle=ne]{right:-6px;top:-6px;cursor:nesw-resize}.pld-handle[data-handle=e]{right:-6px;top:calc(50% - 5px);cursor:ew-resize}

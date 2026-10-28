@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyFormatter, lookup, parseTemplate, placeholderPaths, resolveTemplate, type Warning } from '@pdf-layouter/core'
+import { applyFormatter, evaluateCondition, lookup, parseTemplate, placeholderPaths, resolveTemplate, type Warning } from '@pdf-layouter/core'
 
 const de = { locale: 'de-DE', currency: 'EUR' }
 const en = { locale: 'en-US', currency: 'USD' }
@@ -85,5 +85,23 @@ describe('formatters', () => {
   it('does not format empty values', () => {
     expect(applyFormatter(null, 'currency', de)).toBe('')
     expect(applyFormatter('', 'number', de)).toBe('')
+  })
+})
+
+describe('evaluateCondition', () => {
+  const data = { a: 'x', zero: 0, no: false, list: [], items: [1], n: 5, nothing: null }
+  it('treats missing, null, empty string, false and empty lists as empty (0 counts as a value)', () => {
+    for (const path of ['missing', 'nothing', 'no', 'list']) {
+      expect(evaluateCondition({ path, op: 'exists' }, data)).toBe(false)
+      expect(evaluateCondition({ path, op: 'empty' }, data)).toBe(true)
+    }
+    for (const path of ['a', 'zero', 'items']) expect(evaluateCondition({ path, op: 'exists' }, data)).toBe(true)
+  })
+  it('compares values as text and treats no condition as visible', () => {
+    expect(evaluateCondition({ path: 'n', op: 'equals', value: 5 }, data)).toBe(true)
+    expect(evaluateCondition({ path: 'n', op: 'equals', value: '5' }, data)).toBe(true)
+    expect(evaluateCondition({ path: 'n', op: 'notEquals', value: 6 }, data)).toBe(true)
+    expect(evaluateCondition({ path: 'missing', op: 'notEquals', value: 6 }, data)).toBe(true)
+    expect(evaluateCondition(undefined, data)).toBe(true)
   })
 })

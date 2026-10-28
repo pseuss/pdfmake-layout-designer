@@ -51,3 +51,42 @@ describe('geometry', () => {
     expect(rectToBox(rect, page)).toEqual(box)
   })
 })
+
+import { alignDeltas, guideTargets, snapMoveToGuides, snapResizeToGuides } from '../src/geometry'
+
+describe('snapping guides', () => {
+  const page = { w: 210, h: 297 }
+  const targets = guideTargets([{ x: 50, y: 40, w: 30, h: 20 }], page, { x: 25, y: 95, w: 165, h: 172 })
+
+  it('collects edges and centres of elements, page and content box', () => {
+    expect(targets.xs).toEqual(expect.arrayContaining([0, 105, 210, 25, 190, 50, 65, 80]))
+    expect(targets.ys).toEqual(expect.arrayContaining([0, 148.5, 297, 95, 267, 40, 50, 60]))
+  })
+
+  it('snaps a moved rect to an edge, centre or page centre within the threshold and reports the guide', () => {
+    const s = snapMoveToGuides({ x: 80.9, y: 100, w: 30, h: 10 }, targets, 1.5)
+    expect(s.rect.x).toBe(80) // left edge meets the right edge of the other element
+    expect(s.x).toContain(80)
+    const c = snapMoveToGuides({ x: 91, y: 10, w: 30, h: 10 }, targets, 1.5)
+    expect(c.rect.x + 15).toBe(105) // centre meets the page centre
+    expect(snapMoveToGuides({ x: 120, y: 200, w: 10, h: 10 }, targets, 1.5)).toMatchObject({ x: [], y: [] })
+  })
+
+  it('snaps only the dragged edges when resizing', () => {
+    const s = snapResizeToGuides({ x: 100, y: 100, w: 90.8, h: 20 }, 'e', targets, 1.5, 2)
+    expect(s.rect).toEqual({ x: 100, y: 100, w: 90, h: 20 })
+    expect(s.rect.y).toBe(100)
+    const keep = snapResizeToGuides({ x: 100, y: 99.5, w: 40, h: 20 }, 'e', targets, 1.5, 2)
+    expect(keep.rect.y).toBe(99.5)
+  })
+
+  it('aligns rects to their common bounds', () => {
+    const rects = [{ x: 10, y: 10, w: 20, h: 10 }, { x: 40, y: 30, w: 10, h: 30 }]
+    expect(alignDeltas(rects, 'left')).toEqual([{ dx: 0, dy: 0 }, { dx: -30, dy: 0 }])
+    expect(alignDeltas(rects, 'right')).toEqual([{ dx: 20, dy: 0 }, { dx: 0, dy: 0 }])
+    expect(alignDeltas(rects, 'center')).toEqual([{ dx: 10, dy: 0 }, { dx: -15, dy: 0 }])
+    expect(alignDeltas(rects, 'top')).toEqual([{ dx: 0, dy: 0 }, { dx: 0, dy: -20 }])
+    expect(alignDeltas(rects, 'bottom')).toEqual([{ dx: 0, dy: 40 }, { dx: 0, dy: 0 }])
+    expect(alignDeltas(rects, 'middle')).toEqual([{ dx: 0, dy: 20 }, { dx: 0, dy: -10 }])
+  })
+})

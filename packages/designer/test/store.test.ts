@@ -45,6 +45,66 @@ describe('Store', () => {
   })
 })
 
+describe('Store history', () => {
+  const rect = (id: string) => ({ id, type: 'rect' as const, pages: 'all' as const, x: 0, y: 0, w: 1, h: 1, radius: 0 })
+
+  it('undoes and redoes edits and clears the redo stack on a new edit', () => {
+    const store = new Store(createEmptyLayout())
+    const changes: string[] = []
+    store.on('layout', (c) => changes.push(c.source))
+    store.update((d) => void d.static.push(rect('a')))
+    store.update((d) => void d.static.push(rect('b')))
+    expect([store.canUndo, store.canRedo]).toEqual([true, false])
+    store.undo()
+    expect(store.layout.static.map((e) => e.id)).toEqual(['a'])
+    store.undo()
+    expect(store.layout.static).toEqual([])
+    expect(store.canUndo).toBe(false)
+    store.redo()
+    expect(store.layout.static.map((e) => e.id)).toEqual(['a'])
+    store.update((d) => void d.static.push(rect('c')))
+    expect(store.canRedo).toBe(false)
+    expect(changes.filter((c) => c === 'history')).toHaveLength(3)
+  })
+
+  it('merges quick consecutive edits of one panel into one step but not other sources', () => {
+    const store = new Store(createEmptyLayout())
+    store.update((d) => void d.static.push(rect('a')))
+    for (let i = 1; i <= 5; i++) store.update((d) => void (d.static[0]!.pages = i % 2 ? 'first' : 'all'), 'panel')
+    store.update((d) => void d.static.push(rect('b')), 'canvas')
+    store.undo() // removes b
+    expect(store.layout.static).toHaveLength(1)
+    store.undo() // all five panel edits at once
+    expect(store.layout.static[0]!.pages).toBe('all')
+    store.undo() // the add
+    expect(store.layout.static).toEqual([])
+  })
+
+  it('drops the selection when its element disappears and resets history on setLayout', () => {
+    const store = new Store(createEmptyLayout())
+    store.update((d) => void d.static.push(rect('a')))
+    store.select({ kind: 'static', id: 'a' })
+    store.undo()
+    expect(store.selection).toEqual({ kind: 'none' })
+    store.update((d) => void d.static.push(rect('x')))
+    store.setLayout({ schemaVersion: 1 })
+    expect([store.canUndo, store.canRedo]).toEqual([false, false])
+  })
+
+  it('keeps at most 100 steps and shares assets between snapshots', () => {
+    const store = new Store(createEmptyLayout())
+    store.update((d) => void (d.assets.big = { data: 'x'.repeat(1000) }))
+    for (let i = 0; i < 120; i++) store.update((d) => void d.static.push(rect(`r${i}`)))
+    let steps = 0
+    while (store.canUndo) {
+      store.undo()
+      steps++
+    }
+    expect(steps).toBe(100)
+    expect(store.layout.assets.big).toBeDefined()
+  })
+})
+
 describe('i18n', () => {
   it('has the same keys in German and English and interpolates variables', () => {
     expect(Object.keys(MESSAGES.en).sort()).toEqual(Object.keys(MESSAGES.de).sort())

@@ -1,0 +1,19 @@
+{
+  "name": "example-next",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare:fonts": "node ../../scripts/copy-example-fonts.mjs public/fonts",
+    "dev": "pnpm prepare:fonts && next dev -H 0.0.0.0 -p 5301",
+    "build": "pnpm prepare:fonts && next build",
+    "start": "next start -H 0.0.0.0 -p 5301"
+  },
+  "dependencies": {
+    "@pdf-layouter/core": "workspace:*",
+    "@pdf-layouter/react": "workspace:*",
+    "next": "^16.4.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": { "@types/react": "^19.0.0", "@types/node": "^24.0.0", "typescript": "^5.9.0" }
+}

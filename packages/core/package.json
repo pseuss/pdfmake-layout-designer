@@ -6,8 +6,29 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "require": "./dist/index.cjs" } },
-  "files": ["dist"],
-  "scripts": { "build": "vite build && tsc -p tsconfig.build.json" },
-  "dependencies": { "pdfmake": "0.3.13", "zod": "4.6.7" }
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "pdfmake": "0.3.13",
+    "zod": "4.6.7"
+  },
+  "peerDependencies": {
+    "pdf-lib": "^1.17.1"
+  },
+  "peerDependenciesMeta": {
+    "pdf-lib": {
+      "optional": true
+    }
+  }
 }

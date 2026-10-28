@@ -29,6 +29,12 @@ export interface BatchOptions extends GenerateOptions {
   /** Fail (or warn, see `overflow`) when a record needs more than one page. */
   onePagePerRecord?: boolean
   overflow?: 'error' | 'warn'
+  /**
+   * `single` (default): one pdfmake document, page rules resolved through a measuring pass.
+   * `merge`: every record is rendered on its own and the PDFs are joined with `pdf-lib`
+   * (optional peer dependency). Isolated rendering is the fallback for complex cases; PDF/A and attachments are not supported.
+   */
+  strategy?: 'single' | 'merge'
 }
 
 export class RecordOverflowError extends Error {
@@ -173,8 +179,31 @@ export function generate(layout: Layout | LayoutInput | unknown, data: Data, opt
   return run(layout, [data], options)
 }
 
+async function runMerged(layoutInput: Layout | LayoutInput | unknown, records: Data[], options: BatchOptions): Promise<Uint8Array> {
+  if (options.pdfa || options.attachments?.length) throw new Error("strategy 'merge' does not support pdfa or attachments")
+  let lib: typeof import('pdf-lib')
+  try {
+    lib = await import('pdf-lib')
+  } catch {
+    throw new Error("strategy 'merge' needs the optional dependency 'pdf-lib' (npm install pdf-lib)")
+  }
+  const layout = parseLayout(layoutInput)
+  const merged = await lib.PDFDocument.create()
+  for (const [index, record] of records.entries()) {
+    const part = await run(layout, [record], { ...options, onePagePerRecord: false })
+    const source = await lib.PDFDocument.load(part)
+    const count = source.getPageCount()
+    if (options.onePagePerRecord && count > 1) {
+      if (options.overflow === 'warn') options.onWarning?.({ code: 'overflow', message: `Record ${index} needs ${count} pages` })
+      else throw new RecordOverflowError(index, count)
+    }
+    for (const page of await merged.copyPages(source, source.getPageIndices())) merged.addPage(page)
+  }
+  return merged.save()
+}
+
 /** Use case 2: one PDF containing the layout once per record, each record starting on a new page. */
 export function generateBatch(layout: Layout | LayoutInput | unknown, records: Data[], options: BatchOptions = {}): Promise<Uint8Array> {
   if (records.length === 0) return Promise.reject(new Error('generateBatch needs at least one record'))
-  return run(layout, records, options)
+  return options.strategy === 'merge' ? runMerged(layout, records, options) : run(layout, records, options)
 }

@@ -329,7 +329,7 @@ test('the canvas uses the Host App fonts through the FontFace API, so Designer a
   expect(family).toContain('Inter')
   await page.locator('[data-id=meta]').click()
   const options = await page.getByTestId('font').locator('option').allTextContents()
-  expect(options).toEqual(['Roboto', 'Inter', 'Merriweather'])
+  expect(options).toEqual(['Dokument (Inter)', 'Roboto', 'Inter', 'Merriweather'])
 })
 
 test('English UI labels', async ({ page }) => {

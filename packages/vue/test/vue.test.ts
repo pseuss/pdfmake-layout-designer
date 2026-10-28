@@ -57,6 +57,19 @@ describe('Vue wrapper (A3)', () => {
     expect(c.querySelectorAll('[data-type=rect]')).toHaveLength(1)
   })
 
+  it('starts empty and loads the layout once the host has fetched it (e.g. useFetch in Nuxt)', async () => {
+    const saved: Layout[] = []
+    let designer: Designer | undefined
+    const { state, container: c } = mount({ modelValue: undefined, 'onUpdate:modelValue': (l: Layout) => saved.push(l), onReady: (d: Designer) => (designer = d) })
+    expect(designer!.getLayout().static).toEqual([])
+    state.modelValue = { schemaVersion: 1, locale: 'en-GB', static: [{ id: 'r', type: 'rect', x: 1, y: 1, w: 10, h: 10 }] }
+    await nextTick()
+    expect(c.querySelectorAll('[data-type=rect]')).toHaveLength(1)
+    click(c, 'add-text')
+    expect(saved).toHaveLength(1)
+    expect(designer!.getLayout()).toEqual(saved[0])
+  })
+
   it('forwards sample data and placeholders', async () => {
     const layout = { schemaVersion: 1, static: [{ id: 't', type: 'text', x: 10, y: 10, w: 50, content: 'Hi {{name}}' }] }
     let designer: Designer | undefined

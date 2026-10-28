@@ -1,0 +1,17 @@
+{
+  "name": "example-nuxt",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare:fonts": "node ../../scripts/copy-example-fonts.mjs public/fonts",
+    "dev": "pnpm prepare:fonts && nuxt dev --host 0.0.0.0 --port 5302",
+    "build": "pnpm prepare:fonts && nuxt build",
+    "start": "PORT=5302 HOST=0.0.0.0 node .output/server/index.mjs"
+  },
+  "dependencies": {
+    "@pdf-layouter/core": "workspace:*",
+    "@pdf-layouter/vue": "workspace:*",
+    "nuxt": "^4.6.3",
+    "vue": "^3.5.0"
+  }
+}

@@ -5,6 +5,15 @@ export const CURRENT_SCHEMA_VERSION = 1
 const mm = z.number().finite()
 const color = z.string().regex(/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i, 'expected a hex colour such as #1F3A5F')
 
+/** Shows an element or block only when the condition holds for the Record (`visibleWhen`). */
+export const ConditionSchema = z.object({
+  path: z.string().min(1),
+  /** `exists`: has a non-empty value; `empty`: the opposite; `equals` / `notEquals` compare with `value` as text. */
+  op: z.enum(['exists', 'empty', 'equals', 'notEquals']).default('exists'),
+  value: z.union([z.string(), z.number(), z.boolean()]).optional(),
+})
+export type Condition = z.infer<typeof ConditionSchema>
+
 export const PageRuleSchema = z.enum(['all', 'first', 'notFirst', 'last'])
 export type PageRule = z.infer<typeof PageRuleSchema>
 
@@ -52,7 +61,7 @@ export const RichContentSchema = z
 // ---- static elements -------------------------------------------------------
 
 const rule = PageRuleSchema.default('all')
-const base = { id: z.string().min(1), pages: rule }
+const base = { id: z.string().min(1), pages: rule, visibleWhen: ConditionSchema.optional() }
 const textStyle = {
   font: z.string().optional(),
   size: z.number().positive().optional(),
@@ -99,6 +108,7 @@ export type AddressPreset = z.infer<typeof AddressPresetSchema>
 export const StaticAddressSchema = z.object({
   id: z.string().min(1),
   pages: PageRuleSchema.default('first'),
+  visibleWhen: ConditionSchema.optional(),
   type: z.literal('address'),
   preset: AddressPresetSchema.default('DIN5008-B'),
   /** Small sender line in the return-address zone above the recipient. */
@@ -140,8 +150,11 @@ export const TableStyleSchema = z.object({
 })
 export type TableStyle = z.infer<typeof TableStyleSchema>
 
-export const FlowTextSchema = z.object({ type: z.literal('text'), content: RichContentSchema, margin: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional() })
+const flowCommon = { font: z.string().optional(), visibleWhen: ConditionSchema.optional() }
+
+export const FlowTextSchema = z.object({ ...flowCommon, type: z.literal('text'), content: RichContentSchema, margin: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional() })
 export const FlowTableSchema = z.object({
+  ...flowCommon,
   type: z.literal('table'),
   source: z.string().min(1),
   columns: z.array(ColumnSchema).min(1),
@@ -149,12 +162,14 @@ export const FlowTableSchema = z.object({
 })
 export const TotalsRowSchema = z.object({ label: z.string(), value: z.string(), bold: z.boolean().default(false) })
 export const FlowTotalsSchema = z.object({
+  ...flowCommon,
   type: z.literal('totals'),
   rows: z.array(TotalsRowSchema).min(1),
   width: mm.positive().default(80),
   align: z.enum(['left', 'right']).default('right'),
 })
 export const FlowDynamicSectionsSchema = z.object({
+  ...flowCommon,
   type: z.literal('dynamicSections'),
   source: z.string().min(1),
   styles: z
@@ -166,7 +181,7 @@ export const FlowDynamicSectionsSchema = z.object({
     })
     .default(() => ({ table: TableStyleSchema.parse({}), text: { margin: [0, 4, 0, 4] as [number, number, number, number] } })),
 })
-export const FlowPageBreakSchema = z.object({ type: z.literal('pageBreak') })
+export const FlowPageBreakSchema = z.object({ type: z.literal('pageBreak'), visibleWhen: ConditionSchema.optional() })
 
 export const FlowBlockSchema = z.discriminatedUnion('type', [
   FlowTextSchema,
@@ -206,7 +221,7 @@ export const PageSchema = z.object({
     .object({ font: z.string().default('Roboto'), size: z.number().positive().default(10), color: color.default('#222222') })
     .default(() => ({ font: 'Roboto', size: 10, color: '#222222' })),
   footer: z
-    .object({ content: z.string(), align: z.enum(['left', 'center', 'right']).default('right'), size: z.number().positive().default(8) })
+    .object({ content: z.string(), align: z.enum(['left', 'center', 'right']).default('right'), size: z.number().positive().default(8), font: z.string().optional() })
     .optional(),
 })
 

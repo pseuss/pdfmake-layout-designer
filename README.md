@@ -26,7 +26,7 @@ const pdf: Uint8Array = await generate(layout, data, { fonts: fontRegistry })
 const letters: Uint8Array = await generateBatch(layout, records, { fonts: fontRegistry, onePagePerRecord: true })
 ```
 
-Options: `fonts`, `pdfa` (`'PDF/A-1b' | 'PDF/A-2b' | 'PDF/A-3b'`), `attachments` (e.g. a ZUGFeRD XML that your app creates),
+Options: `strategy` (batch only: `'merge'` renders each record separately and joins them with the optional peer dependency `pdf-lib`), `fonts`, `pdfa` (`'PDF/A-1b' | 'PDF/A-2b' | 'PDF/A-3b'`), `attachments` (e.g. a ZUGFeRD XML that your app creates),
 `onWarning`, `info`. `onePagePerRecord` throws `RecordOverflowError` when a letter needs more than one page (`overflow: 'warn'` only warns).
 `toDocDefinition(layout, data)` returns the raw pdfmake document definition as an escape hatch.
 
@@ -71,6 +71,44 @@ import { LayoutDesigner } from '@pdf-layouter/react'
 ```
 
 `@pdf-layouter/core` also works on the server (Nitro, Next API routes). The UI packages can be imported during SSR; they only touch the DOM when a Designer is created.
+
+## Load and save (the usual Nuxt / Next flow)
+
+The library is stateless and has no storage. Your app loads the JSON, hands it to the Designer, and saves what comes back:
+
+```vue
+<script setup lang="ts">
+const { data: stored } = await useFetch('/api/layout')   // 1. your page fetches the layout from the DB
+const layout = ref(stored.value ?? starterLayout)
+async function save() { await $fetch('/api/layout', { method: 'PUT', body: layout.value }) }   // 3. your own save function
+</script>
+<template>
+  <ClientOnly><LayoutDesigner v-model="layout" :placeholders="catalog" :sample-data="sample" :fonts="fonts" /></ClientOnly>   <!-- 2. v-model = the JSON, updated on every edit -->
+  <button @click="save">Save</button>
+</template>
+```
+
+* `onChange(layout)` (React) / `v-model` (Vue) / `new Designer({ onChange })` deliver the **complete, self-contained JSON after every edit**.
+  `designer.getLayout()` returns the same JSON at any time, so a save button can also read it directly.
+* If the layout arrives *after* the component is mounted (client-side fetch), pass it when it is there: the wrappers call `setLayout()` for you, without echoing it back through `onChange`.
+* Fonts, `locale` and `images` are read once when the Designer is created.
+* Working examples with an API route as "database": [`examples/next`](examples/next) and [`examples/nuxt`](examples/nuxt) (`pnpm --filter example-next dev`, `pnpm --filter example-nuxt dev`), both rendering PDFs on the server too.
+
+## Designer features
+
+Canvas with zoom, grid and snap, **smart guides** (edges and centres of other elements, the page and the content box; hold Alt to disable), drag/resize, **multi-select**
+(shift/ctrl-click, Ctrl+A; move, align, duplicate, delete together), **undo/redo** (Ctrl+Z, Ctrl+Shift+Z / Ctrl+Y, 100 steps, `designer.undo()` / `redo()`),
+property panel, layer order, flow list with drag-to-reorder, rich text, placeholder picker, live preview, image optimisation, warnings.
+
+## Fonts per element
+
+The document font (`page.defaults.font`) is the default. Every text box, address field and flow block (text, table, totals, dynamic sections) and the footer can set
+`"font": "Merriweather"` to use another family from the registry; leave it out to inherit. The Designer offers "Document (Inter)" as the first entry of every font select.
+
+## Conditional elements (`visibleWhen`)
+
+Any static element or flow block can carry `"visibleWhen": { "path": "kunde.zusatz", "op": "exists" }` (`exists`, `empty`, `equals`, `notEquals` with `value`).
+It is evaluated per Record, so in a batch each letter shows or hides it on its own. There is no expression language (ADR 0003).
 
 ## Layout JSON
 
@@ -151,4 +189,7 @@ Requirements coverage: [`docs/coverage.md`](docs/coverage.md). Specification: [`
 
 ## Known limits
 
-Undo/redo, snapping guides, multi-select and `visibleWhen` are phase 2. The rich-text editor edits bold, italic, underline and lists; run colour/size and paragraph alignment set in JSON are preserved until the block is edited in the Designer.
+* The rich-text editor edits bold, italic, underline and lists; run colour/size and paragraph alignment set in JSON are dropped when the block is edited in the Designer.
+* `strategy: 'merge'` cannot combine with `pdfa` or `attachments` (pdf-lib joins plain PDFs).
+* The live preview updates while the preview tab is open.
+* pdfmake has one margin set per document: see "Content box" above.

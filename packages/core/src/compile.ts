@@ -1,6 +1,7 @@
 import { isSvgAsset, pageRuleMatches, pageSizeMm, parseLayout } from './layout'
 import {
   applyFormatter,
+  evaluateCondition,
   lookup,
   resolvePageTemplate,
   resolveTemplate,
@@ -74,6 +75,8 @@ const DynamicItemSchema = z.discriminatedUnion('type', [
 export function collectFonts(layout: Layout): string[] {
   const fonts = new Set<string>([layout.page.defaults.font])
   for (const el of layout.static) if ('font' in el && el.font) fonts.add(el.font)
+  for (const block of layout.flow) if ('font' in block && block.font) fonts.add(block.font)
+  if (layout.page.footer?.font) fonts.add(layout.page.footer.font)
   return [...fonts]
 }
 
@@ -170,6 +173,8 @@ function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: War
   const resolve = (s: string) => resolveTemplate(s, data, ctx, warn)
   const out: Node[] = []
   const flowBlock = (block: FlowBlock) => {
+    if (!evaluateCondition(block.visibleWhen, data)) return
+    const start = out.length
     switch (block.type) {
       case 'text':
         out.push({ stack: richNodes(block.content, resolve), margin: block.margin })
@@ -237,6 +242,8 @@ function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: War
         out.push({ text: ' ', fontSize: 1, pageBreak: 'before' })
         break
     }
+    // a block font overrides the document font for everything the block produced
+    if ('font' in block && block.font) for (let i = start; i < out.length; i++) out[i]!.font = block.font
   }
   layout.flow.forEach(flowBlock)
   return out
@@ -263,6 +270,7 @@ function staticNodes(layout: Layout, data: Data, ctx: FormatContext, warn: (w: W
   const resolve = (s: string) => resolveTemplate(s, data, ctx, warn)
   const result: StaticNode[] = []
   for (const el of layout.static as StaticElement[]) {
+    if (!evaluateCondition(el.visibleWhen, data)) continue
     let node: Node
     switch (el.type) {
       case 'image': {
@@ -412,6 +420,7 @@ export function compile(layoutInput: Layout | LayoutInput | unknown, records: Da
         text: resolvePageTemplate(footer.content, records[rec.index], ctx, { page, pages }),
         alignment: footer.align,
         fontSize: footer.size,
+        ...(footer.font ? { font: footer.font } : {}),
         margin: [margins[0] ?? 0, 10, margins[2] ?? 0, 0],
       }
     }

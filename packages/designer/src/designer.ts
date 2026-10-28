@@ -90,6 +90,7 @@ export class Designer {
         this.canvas.render()
         this.renderLists()
         this.renderWarnings()
+        this.syncToolbar()
         if (!source.startsWith('panel')) this.inspector.render()
         this.preview.schedule()
         if (source !== 'api') this.options.onChange?.(this.store.getLayout())
@@ -132,6 +133,22 @@ export class Designer {
 
   setLayout(layout: LayoutInput | Layout): void {
     this.store.setLayout(layout)
+  }
+
+  undo(): void {
+    this.store.undo()
+  }
+
+  redo(): void {
+    this.store.redo()
+  }
+
+  get canUndo(): boolean {
+    return this.store.canUndo
+  }
+
+  get canRedo(): boolean {
+    return this.store.canRedo
   }
 
   setSampleData(data: Data): void {
@@ -247,6 +264,8 @@ export class Designer {
     return h(
       'div',
       { class: 'pld-toolbar', 'data-testid': 'toolbar' },
+      mk('↶', T('action.undo'), 'undo', () => this.store.undo()),
+      mk('↷', T('action.redo'), 'redo', () => this.store.redo()),
       mk(T('view.first'), T('view.first'), 'view-first', () => this.store.setView('first')),
       mk(T('view.follow'), T('view.follow'), 'view-follow', () => this.store.setView('follow')),
       h('span', { class: 'pld-spacer' }),
@@ -266,6 +285,10 @@ export class Designer {
     set('view-follow', this.store.view === 'follow')
     set('toggle-grid', this.store.showGrid)
     set('toggle-snap', this.store.snap)
+    for (const [id, enabled] of [['undo', this.store.canUndo], ['redo', this.store.canRedo]] as const) {
+      const btn = this.root.querySelector<HTMLButtonElement>(`[data-testid="${id}"]`)
+      if (btn) btn.disabled = !enabled
+    }
   }
 
   private buildRight(): HTMLElement {
@@ -317,8 +340,8 @@ export class Designer {
     clear(this.staticList)
     const typeKey = { image: 'element.image', text: 'element.text', line: 'element.line', rect: 'element.rect', address: 'element.address' } as const
     ;[...this.store.layout.static].reverse().forEach((el) => {
-      const item = h('div', { class: `pld-list-item${sel.kind === 'static' && sel.id === el.id ? ' is-selected' : ''}`, 'data-testid': `layer-${el.id}` }, h('span', { class: 'pld-grow' }, `${T(typeKey[el.type])} · ${el.id}`))
-      item.addEventListener('click', () => this.store.select({ kind: 'static', id: el.id }))
+      const item = h('div', { class: `pld-list-item${this.store.selectedStaticIds().includes(el.id) ? ' is-selected' : ''}`, 'data-testid': `layer-${el.id}` }, h('span', { class: 'pld-grow' }, `${T(typeKey[el.type])} · ${el.id}`))
+      item.addEventListener('click', (e) => (e.shiftKey || e.ctrlKey || e.metaKey ? this.store.toggleStatic(el.id) : this.store.select({ kind: 'static', id: el.id })))
       this.staticList.append(item)
     })
   }
@@ -338,6 +361,19 @@ export class Designer {
 
   private onKeyDown(e: KeyboardEvent): void {
     if (isEditable(e.target)) return
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')) {
+      const redo = e.key.toLowerCase() === 'y' || e.shiftKey
+      if (redo) this.store.redo()
+      else this.store.undo()
+      e.preventDefault()
+      return
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+      const ids = this.store.layout.static.filter((el) => el.type !== 'address').map((el) => el.id)
+      this.store.select(ids.length > 1 ? { kind: 'multi', ids } : ids.length === 1 ? { kind: 'static', id: ids[0]! } : { kind: 'none' })
+      e.preventDefault()
+      return
+    }
     const step = e.shiftKey ? 10 : 1
     switch (e.key) {
       case 'Delete':

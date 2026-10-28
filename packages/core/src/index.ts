@@ -1,6 +1,6 @@
 export * from './schema'
 export { LayoutError, parseLayout, migrateLayout, createEmptyLayout, pruneAssets, pageSizeMm, pageRuleMatches, isSvgAsset } from './layout'
-export { applyFormatter, lookup, parseTemplate, placeholderPaths, resolveTemplate, type Data, type FormatContext, type Token, type Warning } from './placeholders'
+export { applyFormatter, evaluateCondition, lookup, parseTemplate, placeholderPaths, resolveTemplate, type Data, type FormatContext, type Token, type Warning } from './placeholders'
 export { compile, toDocDefinition, mmToPt, type CompileOptions, type CompileResult, type DocDefinition, type PageMap } from './compile'
 export { buildPdfmakeFonts, completeFontFiles, loadRobotoData, FALLBACK_FONT, type FontFamily, type FontFiles, type FontRegistry } from './fonts'
 export { generate, generateBatch, RecordOverflowError, type Attachment, type BatchOptions, type GenerateOptions, type PdfAProfile } from './generate'

@@ -53,6 +53,22 @@ describe('React wrapper (A3)', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
+  it('starts empty and loads the layout once the host has fetched it (e.g. from a database), then exposes edits for saving', () => {
+    const saved: Layout[] = []
+    let designer: Designer | undefined
+    const props = (value?: Layout) => ({ value, onChange: (l: Layout) => saved.push(l), onReady: (d: Designer) => (designer = d) })
+    render(props(undefined)) // page rendered, request still running
+    expect(designer!.getLayout().static).toEqual([])
+    const fromDb = { schemaVersion: 1, locale: 'en-GB', static: [{ id: 'r', type: 'rect', x: 1, y: 1, w: 10, h: 10 }] } as unknown as Layout
+    render(props(fromDb)) // request finished
+    expect(container.querySelectorAll('[data-type=rect]')).toHaveLength(1)
+    expect(designer!.getLayout().locale).toBe('en-GB')
+    click('add-text')
+    expect(saved).toHaveLength(1) // onChange carries the edited JSON for the save function
+    expect(designer!.getLayout()).toEqual(saved[0]) // getLayout() is the same JSON at any time
+    expect(saved[0]!.static.map((e) => e.type)).toEqual(['rect', 'text'])
+  })
+
   it('does not reset the Designer when the host feeds the emitted layout back (controlled usage)', () => {
     let current: Layout | undefined
     const props = () => ({ value: current, onChange: (l: Layout) => (current = l) })

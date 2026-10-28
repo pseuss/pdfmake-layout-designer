@@ -11,6 +11,7 @@ export default defineConfig({
       '@pdf-layouter/designer': src('../../packages/designer/src/index.ts'),
     },
   },
-  server: { fs: { allow: [src('../..')] }, port: 5199, strictPort: true },
+  server: { host: true, fs: { allow: [src('../..')] }, port: 5199, strictPort: true },
+  preview: { host: true },
   build: { target: 'es2022' },
 })

@@ -142,3 +142,20 @@ export function resolvePageTemplate(
     })
     .join('')
 }
+
+/** Evaluates a `visibleWhen` condition against one Record. */
+export function evaluateCondition(condition: { path: string; op: 'exists' | 'empty' | 'equals' | 'notEquals'; value?: string | number | boolean | undefined } | undefined, data: unknown): boolean {
+  if (!condition) return true
+  const value = lookup(data, condition.path)
+  const present = value !== undefined && value !== null && value !== '' && value !== false && !(Array.isArray(value) && value.length === 0)
+  switch (condition.op) {
+    case 'exists':
+      return present
+    case 'empty':
+      return !present
+    case 'equals':
+      return present && String(value) === String(condition.value)
+    case 'notEquals':
+      return !present || String(value) !== String(condition.value)
+  }
+}

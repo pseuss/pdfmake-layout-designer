@@ -1,13 +1,16 @@
 import { ADDRESS_PRESETS, applyFormatter, isSvgAsset, pageRuleMatches, pageSizeMm, type FlowBlock, type Layout, type StaticElement } from '@pdf-layouter/core'
 import { clear, h } from './dom'
 import { cssFontFamily } from './fonts'
-import { boxToRect, HANDLES, moveRect, rectToBox, resizeRect, round, snapValue, type Handle, type Rect } from './geometry'
+import { moveStatic, staticRect } from './actions'
+import { boxToRect, guideTargets, HANDLES, moveRect, rectToBox, resizeRect, round, snapMoveToGuides, snapResizeToGuides, snapValue, type GuideSnap, type GuideTargets, type Handle, type Rect } from './geometry'
 import type { Translator } from './i18n'
 import type { Store, View } from './store'
 import { previewText } from './warnings'
 
 const MM_PX = 96 / 25.4
 const PT_PX = 96 / 72
+/** Distance in mm within which an edge or centre snaps to a guide. */
+const GUIDE_THRESHOLD = 1.2
 
 interface Session {
   startX: number
@@ -104,7 +107,8 @@ export class Canvas {
   // ---- static elements ---------------------------------------------------------
 
   private renderStatic(el: StaticElement, layout: Layout): HTMLElement {
-    const selected = this.store.selection.kind === 'static' && this.store.selection.id === el.id
+    const selected = this.store.selectedStaticIds().includes(el.id)
+    const single = selected && this.store.selection.kind === 'static' // resize handles only for a single selection
     const node = h('div', {
       class: `pld-el pld-el-${el.type}${selected ? ' is-selected' : ''}${this.appliesTo(el.pages) ? '' : ' is-dimmed'}`,
       'data-testid': `el-${el.id}`,
@@ -139,7 +143,7 @@ export class Canvas {
           const src = isSvgAsset(asset.data) ? `data:image/svg+xml;utf8,${encodeURIComponent(asset.data)}` : asset.data
           node.append(h('img', { src, alt: '', draggable: false }))
         }
-        if (selected) this.addHandles(node, HANDLES)
+        if (single) this.addHandles(node, HANDLES)
         break
       }
       case 'rect': {
@@ -149,12 +153,12 @@ export class Canvas {
           border: el.stroke ? `${Math.max(1, el.stroke.width * PT_PX * this.store.zoom)}px solid ${el.stroke.color}` : 'none',
           borderRadius: this.px(el.radius),
         })
-        if (selected) this.addHandles(node, HANDLES)
+        if (single) this.addHandles(node, HANDLES)
         break
       }
       case 'line': {
         this.layoutLine(node, { x: el.x1, y: el.y1 }, { x: el.x2, y: el.y2 }, el)
-        if (selected) {
+        if (single) {
           const at = (fromStart: boolean, startLow: boolean) => (fromStart === startLow ? '-6px' : 'calc(100% - 6px)')
           const handle = (name: string, left: string, top: string) => h('div', { class: 'pld-handle', 'data-handle': name, style: { left, top, cursor: 'crosshair' } })
           // p1 sits on the first endpoint, which is not always the top-left corner of the bounding box
@@ -166,7 +170,7 @@ export class Canvas {
         Object.assign(node.style, { left: this.px(el.x), top: this.px(el.y), width: this.px(el.w) })
         textStyle(el)
         renderText(el.content, node)
-        if (selected) this.addHandles(node, ['e', 'w'])
+        if (single) this.addHandles(node, ['e', 'w'])
         break
       }
       case 'address': {
@@ -285,6 +289,7 @@ export class Canvas {
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', up)
       this.session = undefined
+      this.clearGuides()
       if (s.moved) s.commit((ev.clientX - s.startX) / this.scale, (ev.clientY - s.startY) / this.scale, ev)
     }
     window.addEventListener('pointermove', move)
@@ -298,6 +303,18 @@ export class Canvas {
     const node = (e.currentTarget as HTMLElement)!
     const handle = target.dataset.handle
     const { grid, snap } = this.store
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      // modifier click toggles the element in a multi-selection
+      e.preventDefault()
+      e.stopPropagation()
+      this.store.toggleStatic(el.id)
+      return
+    }
+    const group = this.store.selectedStaticIds()
+    if (group.length > 1 && group.includes(el.id) && !handle) {
+      this.moveGroup(e, group)
+      return
+    }
     this.store.select({ kind: 'static', id: el.id })
     const fresh = this.page.querySelector<HTMLElement>(`[data-id="${CSS.escape(el.id)}"]`) ?? node
 
@@ -336,24 +353,80 @@ export class Canvas {
 
     const base: Rect = el.type === 'text' ? { x: el.x, y: el.y, w: el.w, h: Math.max(fresh.offsetHeight / this.scale, 4) } : { x: el.x, y: el.y, w: el.w, h: el.h }
     const aspect = el.type === 'image' ? base.w / base.h : undefined
-    const compute = (dx: number, dy: number, ev: PointerEvent): Rect =>
-      handle
+    const targets = snap ? this.guideTargetsFor([el.id]) : undefined
+    const compute = (dx: number, dy: number, ev: PointerEvent): GuideSnap => {
+      const r = handle
         ? resizeRect(base, handle as Handle, dx, dy, { grid, snap, minSize: 2, aspect: aspect && !ev.altKey ? aspect : undefined })
         : moveRect(base, dx, dy, grid, snap)
+      if (!targets || ev.altKey) return { rect: r, x: [], y: [] }
+      // no guides while the aspect ratio of an image is locked: they would distort it
+      if (handle && aspect) return { rect: r, x: [], y: [] }
+      return handle ? snapResizeToGuides(r, handle as Handle, targets, GUIDE_THRESHOLD, 2) : snapMoveToGuides(r, targets, GUIDE_THRESHOLD)
+    }
     this.beginSession(e, {
       live: (dx, dy, ev) => {
-        const r = compute(dx, dy, ev)
+        const g = compute(dx, dy, ev)
+        const r = g.rect
+        this.showGuides(g.x, g.y)
         if (el.type === 'text') Object.assign(fresh.style, { left: this.px(r.x), top: this.px(r.y), width: this.px(r.w) })
         else this.placeRect(fresh, r)
       },
       commit: (dx, dy, ev) => {
-        const r = compute(dx, dy, ev)
+        const r = compute(dx, dy, ev).rect
         this.store.update((d) => {
           const t = d.static.find((x) => x.id === el.id)
           if (!t) return
           if (t.type === 'text') Object.assign(t, { x: r.x, y: r.y, w: r.w })
           else if (t.type === 'image' || t.type === 'rect') Object.assign(t, r)
         }, 'canvas')
+      },
+    })
+  }
+
+  /** Alignment targets for guides: other elements, page edges and centres, and the content box. */
+  private guideTargetsFor(excludeIds: string[]): GuideTargets {
+    const { layout, view } = this.store
+    const page = pageSizeMm(layout)
+    const others = layout.static.filter((x) => !excludeIds.includes(x.id)).map(staticRect)
+    return guideTargets(others, page, boxToRect(layout.page.contentBox[view], page))
+  }
+
+  private showGuides(xs: number[], ys: number[]): void {
+    this.clearGuides()
+    const page = pageSizeMm(this.store.layout)
+    for (const x of xs) this.page.append(h('div', { class: 'pld-guide', 'data-testid': 'guide-x', style: { left: this.px(x), top: '0', width: '1px', height: this.px(page.h) } }))
+    for (const y of ys) this.page.append(h('div', { class: 'pld-guide', 'data-testid': 'guide-y', style: { top: this.px(y), left: '0', height: '1px', width: this.px(page.w) } }))
+  }
+
+  private clearGuides(): void {
+    this.page.querySelectorAll('.pld-guide').forEach((g) => g.remove())
+  }
+
+  /** Drags all selected elements together; the group snaps as one rectangle. */
+  private moveGroup(e: PointerEvent, ids: string[]): void {
+    const { grid, snap } = this.store
+    const els = this.store.layout.static.filter((x) => ids.includes(x.id) && x.type !== 'address')
+    if (!els.length) return
+    const rects = els.map(staticRect)
+    const left = Math.min(...rects.map((r) => r.x))
+    const top = Math.min(...rects.map((r) => r.y))
+    const union: Rect = { x: left, y: top, w: Math.max(...rects.map((r) => r.x + r.w)) - left, h: Math.max(...rects.map((r) => r.y + r.h)) - top }
+    const targets = snap ? this.guideTargetsFor(ids) : undefined
+    const delta = (dx: number, dy: number, ev: PointerEvent) => {
+      const m = moveRect(union, dx, dy, grid, snap)
+      const g = targets && !ev.altKey ? snapMoveToGuides(m, targets, GUIDE_THRESHOLD) : { rect: m, x: [], y: [] }
+      return { dx: round(g.rect.x - union.x), dy: round(g.rect.y - union.y), g }
+    }
+    const nodes = els.map((x) => this.page.querySelector<HTMLElement>(`[data-id="${CSS.escape(x.id)}"]`)).filter((n): n is HTMLElement => !!n)
+    this.beginSession(e, {
+      live: (dx, dy, ev) => {
+        const d = delta(dx, dy, ev)
+        for (const n of nodes) n.style.transform = `translate(${d.dx * this.scale}px, ${d.dy * this.scale}px)`
+        this.showGuides(d.g.x, d.g.y)
+      },
+      commit: (dx, dy, ev) => {
+        const d = delta(dx, dy, ev)
+        moveStatic(this.store, els.map((x) => x.id), d.dx, d.dy)
       },
     })
   }
