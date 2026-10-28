@@ -31,6 +31,8 @@ const designer = new Designer({
   sampleData: data,
   fonts,
   locale: params.get('locale') === 'en' ? 'en' : 'de',
+  theme: (params.get('theme') as 'light' | 'dark' | 'auto' | null) ?? undefined,
+  primaryColor: params.get('primary') ?? undefined,
   onChange: (l) => changes.push(l),
 })
 

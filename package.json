@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:dist": "node tests/built/smoke.mjs",
     "test:e2e": "playwright test",
-    "check": "pnpm typecheck && pnpm build && pnpm test && pnpm test:dist && pnpm test:e2e",
+    "check": "node scripts/build-styles.mjs --check && pnpm typecheck && pnpm build && pnpm test && pnpm test:dist && pnpm test:e2e",
     "fixtures": "node scripts/make-fixtures.mjs",
     "dev": "vite examples/vanilla",
     "build:examples": "pnpm --filter example-next --filter example-nuxt build"

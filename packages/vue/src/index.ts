@@ -1,6 +1,6 @@
 import { defineComponent, h, onBeforeUnmount, onMounted, ref, toRaw, watch, type PropType } from 'vue'
 import type { Data, FontRegistry, Layout, LayoutInput } from '@pdf-layouter/core'
-import { Designer, type ImageOptions, type Locale, type PlaceholderCatalog } from '@pdf-layouter/designer'
+import { Designer, type ImageOptions, type Locale, type PlaceholderCatalog, type ThemeMode } from '@pdf-layouter/designer'
 
 /**
  * Vue 3 wrapper around the framework-agnostic Designer (`v-model` carries the Layout JSON).
@@ -15,6 +15,8 @@ export const LayoutDesigner = defineComponent({
     fonts: { type: Array as PropType<FontRegistry>, default: undefined },
     locale: { type: String as PropType<Locale>, default: undefined },
     images: { type: Object as PropType<Partial<ImageOptions>>, default: undefined },
+    theme: { type: String as PropType<ThemeMode>, default: undefined },
+    primaryColor: { type: String, default: undefined },
   },
   emits: { 'update:modelValue': (_layout: Layout) => true, ready: (_designer: Designer) => true },
   setup(props, { emit, expose }) {
@@ -31,6 +33,8 @@ export const LayoutDesigner = defineComponent({
         fonts: props.fonts ? toRaw(props.fonts) : undefined,
         locale: props.locale,
         images: props.images,
+        theme: props.theme,
+        primaryColor: props.primaryColor,
         onChange: (layout) => {
           lastEmitted = layout
           emit('update:modelValue', layout)
@@ -51,6 +55,8 @@ export const LayoutDesigner = defineComponent({
       },
     )
     watch(() => props.sampleData, (value) => designer?.setSampleData(value ? toRaw(value) : {}))
+    watch(() => props.theme, (value) => designer?.setTheme(value ?? 'auto'))
+    watch(() => props.primaryColor, (value) => designer?.setPrimaryColor(value))
     watch(() => props.placeholders, (value) => designer?.setPlaceholders(value ? toRaw(value) : undefined))
 
     onBeforeUnmount(() => {

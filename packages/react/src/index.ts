@@ -32,6 +32,8 @@ export function LayoutDesigner(props: LayoutDesignerProps): ReactElement {
       fonts: p.fonts,
       locale: p.locale,
       images: p.images,
+      theme: p.theme,
+      primaryColor: p.primaryColor,
       onChange: (layout) => {
         lastEmitted.current = layout
         latest.current.onChange?.(layout)
@@ -60,6 +62,14 @@ export function LayoutDesigner(props: LayoutDesignerProps): ReactElement {
   useEffect(() => {
     designer.current?.setPlaceholders(props.placeholders)
   }, [props.placeholders])
+
+  useEffect(() => {
+    designer.current?.setTheme(props.theme ?? 'auto')
+  }, [props.theme])
+
+  useEffect(() => {
+    designer.current?.setPrimaryColor(props.primaryColor)
+  }, [props.primaryColor])
 
   return createElement('div', { ref: host, className: props.className, style: { height: '100%', ...props.style } })
 }

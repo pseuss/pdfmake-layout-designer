@@ -10,6 +10,7 @@ import { Inspector } from './inspector'
 import { Preview } from './preview'
 import { Store } from './store'
 import { injectStyles } from './styles'
+import { ThemeController, type ResolvedTheme, type ThemeMode } from './theme'
 import { collectWarnings, type DesignerWarning, type PlaceholderCatalog } from './warnings'
 
 export interface DesignerOptions {
@@ -24,6 +25,10 @@ export interface DesignerOptions {
   /** The Host App's fonts (URLs in the browser). */
   fonts?: FontRegistry
   images?: Partial<ImageOptions>
+  /** `light`, `dark`, or `auto` (default): follows `<html class="dark">` / `data-theme`, else the operating system. */
+  theme?: ThemeMode
+  /** Accent colour as hex, e.g. `"#0d9488"`, so the Designer matches your app. Text on it switches between white and dark automatically. */
+  primaryColor?: string
   /** Called after every edit made in the UI with the current self-contained Layout JSON. */
   onChange?: (layout: Layout) => void
 }
@@ -49,6 +54,7 @@ export class Designer {
   private pendingReplace: string | undefined
   private unsubscribe: (() => void)[] = []
   private imageOptions: ImageOptions
+  private themeController: ThemeController
   private destroyed = false
 
   constructor(private options: DesignerOptions) {
@@ -83,6 +89,7 @@ export class Designer {
       this.fileInput,
     )
     options.container.append(this.root)
+    this.themeController = new ThemeController(this.root, options.theme, options.primaryColor)
     this.root.addEventListener('keydown', (e) => this.onKeyDown(e))
 
     this.unsubscribe.push(
@@ -151,6 +158,21 @@ export class Designer {
     return this.store.canRedo
   }
 
+  /** Switches between `light`, `dark` and `auto`. */
+  setTheme(theme: ThemeMode): void {
+    this.themeController.setMode(theme)
+  }
+
+  /** The theme currently shown (`auto` resolved). */
+  getTheme(): ResolvedTheme {
+    return this.themeController.resolved
+  }
+
+  /** Sets the accent colour (hex); `undefined` restores the default. */
+  setPrimaryColor(color: string | undefined): void {
+    this.themeController.setPrimary(color)
+  }
+
   setSampleData(data: Data): void {
     this.store.setSampleData(data)
   }
@@ -205,6 +227,7 @@ export class Designer {
 
   destroy(): void {
     this.destroyed = true
+    this.themeController.destroy()
     this.unsubscribe.forEach((u) => u())
     this.preview.destroy()
     this.root.remove()

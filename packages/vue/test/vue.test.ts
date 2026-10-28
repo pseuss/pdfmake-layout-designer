@@ -83,6 +83,18 @@ describe('Vue wrapper (A3)', () => {
     expect(designer!.getWarnings().map((w) => w.code)).toEqual(['unknown-placeholder'])
   })
 
+  it('passes theme and primaryColor through and applies later changes', async () => {
+    const { state, container: c } = mount({ theme: 'dark', primaryColor: '#0d9488' })
+    const el = () => c.querySelector<HTMLElement>('[data-testid=designer]')!
+    expect(el().getAttribute('data-theme')).toBe('dark')
+    expect(el().style.getPropertyValue('--pld-primary')).toBe('#0d9488')
+    state.theme = 'light'
+    state.primaryColor = '#facc15'
+    await nextTick()
+    expect(el().getAttribute('data-theme')).toBe('light')
+    expect(el().style.getPropertyValue('--pld-on-primary')).toBe('#111827')
+  })
+
   it('renders on the server without touching the DOM (Nuxt SSR)', async () => {
     const html = await renderToString(createApp({ render: () => h(LayoutDesigner) }))
     expect(html).toBe('<div style="height:100%;"></div>')

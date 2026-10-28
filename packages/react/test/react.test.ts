@@ -93,6 +93,16 @@ describe('React wrapper (A3)', () => {
     expect(designer!.getWarnings().map((w) => w.code)).toEqual(['unknown-placeholder'])
   })
 
+  it('passes theme and primaryColor through and applies later changes', () => {
+    const el = () => container.querySelector<HTMLElement>('[data-testid=designer]')!
+    render({ theme: 'dark', primaryColor: '#0d9488' })
+    expect(el().getAttribute('data-theme')).toBe('dark')
+    expect(el().style.getPropertyValue('--pld-primary')).toBe('#0d9488')
+    render({ theme: 'light', primaryColor: '#facc15' })
+    expect(el().getAttribute('data-theme')).toBe('light')
+    expect(el().style.getPropertyValue('--pld-on-primary')).toBe('#111827')
+  })
+
   it('survives React StrictMode double mounting with exactly one Designer', () => {
     act(() => root.render(createElement(StrictMode, null, createElement(LayoutDesigner, {}))))
     expect(container.querySelectorAll('[data-testid=designer]')).toHaveLength(1)

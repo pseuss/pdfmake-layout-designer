@@ -44,6 +44,8 @@ const designer = new Designer({
   sampleData,                       // for canvas and live preview
   fonts: fontRegistry,              // from your app (URLs in the browser)
   locale: 'de',                     // 'de' | 'en'
+  theme: 'auto',                    // 'light' | 'dark' | 'auto'
+  primaryColor: '#0d9488',          // optional: matches the Designer to your app
   onChange: (layout) => save(layout),
 })
 designer.getLayout()   // self-contained JSON (unused images removed)
@@ -71,6 +73,21 @@ import { LayoutDesigner } from '@pdf-layouter/react'
 ```
 
 `@pdf-layouter/core` also works on the server (Nitro, Next API routes). The UI packages can be imported during SSR; they only touch the DOM when a Designer is created.
+
+## Theming: light, dark and your primary colour
+
+The default is a plain, neutral design (white buttons, thin borders). Two options adapt it to your app:
+
+```ts
+new Designer({ container, theme: 'auto', primaryColor: '#0d9488' })   // also props on <LayoutDesigner>
+designer.setTheme('dark')           // 'light' | 'dark' | 'auto' – at any time
+designer.setPrimaryColor('#7c3aed') // hex; undefined restores the default
+```
+
+* `theme: 'auto'` (default) follows your page: `<html class="dark">` / `class="light"`, `data-theme` or `data-bs-theme` on `<html>`, otherwise the operating system. It reacts live to changes.
+* `primaryColor` drives selection outlines, handles, the content box, active tabs and pressed buttons; text on it switches between white and near-black for contrast. The paper on the canvas stays white in dark mode.
+* Everything else is a CSS custom property on `.pld-root` (`--pld-bg`, `--pld-surface`, `--pld-border`, `--pld-text`, `--pld-radius`, `--pld-font`, …) that you can override in your own CSS.
+* The styles are written with Tailwind CSS v4 at build time and ship as plain scoped CSS: your app needs no Tailwind (ADR 0006). Change `packages/designer/src/theme.css`, then run `node scripts/build-styles.mjs`.
 
 ## Load and save (the usual Nuxt / Next flow)
 
