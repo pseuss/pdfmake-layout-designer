@@ -92,7 +92,7 @@ test.describe('images (R1, R2, 7.2)', () => {
     expect(await dims(page, a.data)).toEqual({ w: 2480, h: 827 })
   })
 
-  test('a flat opaque PNG logo stays lossless PNG, a noisy opaque PNG photo becomes JPEG', async ({ page }) => {
+  test('opaque PNGs become JPEG (flat or noisy); only transparency keeps PNG', async ({ page }) => {
     await open(page, 'layout=empty')
     const formats = await page.evaluate(async () => {
       const make = async (noise: boolean) => {
@@ -125,7 +125,7 @@ test.describe('images (R1, R2, 7.2)', () => {
       await d.addImage(await make(true))
       return Object.values(d.getLayout().assets).map((a: any) => a.data.slice(5, a.data.indexOf(';')))
     })
-    expect(formats).toEqual(['image/png', 'image/jpeg'])
+    expect(formats).toEqual(['image/jpeg', 'image/jpeg'])
   })
 
   test('SVG logos are kept as SVG text', async ({ page }) => {

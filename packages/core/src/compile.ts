@@ -175,7 +175,23 @@ export function rowWidthsMm(blocks: FlowBlock[], availMm: number): number[] {
   return fixed.map((w) => (w === undefined ? share : w * scale))
 }
 
-function buildTable(columns: Column[], rows: Record<string, unknown>[], style: TableStyle, ctx: FormatContext, warn: (w: Warning) => void, source: string, availMm?: number): Node {
+/** Formatting and warning context shared by everything that renders a Record. */
+interface RenderEnv {
+  ctx: FormatContext
+  warn: (w: Warning) => void
+}
+
+interface TableSpec {
+  columns: Column[]
+  rows: Record<string, unknown>[]
+  style: TableStyle
+  /** Where the rows come from, for warnings. */
+  source: string
+  /** Width the table may use; fixed columns shrink to fit. */
+  availMm?: number
+}
+
+function buildTable({ columns, rows, style, source, availMm }: TableSpec, { ctx, warn }: RenderEnv): Node {
   const widths = availMm === undefined ? columns.map((c) => c.width) : fitColumnWidths(columns, availMm)
   const header = columns.map((c) => {
     const cell: Node = { text: c.title, bold: true, alignment: c.align }
@@ -224,7 +240,7 @@ function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: War
           warn({ code: 'missing-list', message: `No list "${block.source}" in the data; table skipped` })
           break
         }
-        out.push(buildTable(block.columns, rows as Record<string, unknown>[], block.style, ctx, warn, block.source, availMm))
+        out.push(buildTable({ columns: block.columns, rows: rows as Record<string, unknown>[], style: block.style, source: block.source, availMm }, { ctx, warn }))
         break
       }
       case 'totals': {
@@ -276,7 +292,7 @@ function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: War
             out.push({ stack: richNodes(toBlocks(item.content as string | Run[] | RichBlock[]), resolve), margin: block.styles.text.margin })
           } else {
             const style = TableStyleSchema.parse({ ...block.styles.table, ...item.style })
-            out.push(buildTable(item.columns, item.rows, style, ctx, warn, `${block.source}[${index}]`, availMm))
+            out.push(buildTable({ columns: item.columns, rows: item.rows, style, source: `${block.source}[${index}]`, availMm }, { ctx, warn }))
           }
         })
         break

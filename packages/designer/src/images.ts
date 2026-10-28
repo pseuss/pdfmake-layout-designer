@@ -93,7 +93,7 @@ export async function processImage(file: Blob, options: Partial<ImageOptions> = 
     if (scaled || file.type !== 'image/png') blob = await canvasToBlob(canvas, 'image/png')
   } else {
     format = 'jpeg'
-    // JPEG has no alpha channel: flatten onto white before encoding
+    // opaque PNG/WebP/GIF become JPEG. JPEG has no alpha channel: flatten onto white before encoding
     const flat = document.createElement('canvas')
     flat.width = target.w
     flat.height = target.h
@@ -101,15 +101,7 @@ export async function processImage(file: Blob, options: Partial<ImageOptions> = 
     flatCtx.fillStyle = '#ffffff'
     flatCtx.fillRect(0, 0, target.w, target.h)
     flatCtx.drawImage(canvas, 0, 0)
-    // opaque PNG/WebP/GIF: JPEG only when PNG is more than twice as big (photos); flat graphics and logos stay lossless PNG
-    const jpeg = await canvasToBlob(flat, 'image/jpeg', o.jpegQuality)
-    const png = file.type === 'image/png' && !scaled ? file : await canvasToBlob(canvas, 'image/png')
-    if (png.size <= jpeg.size * 2) {
-      format = 'png'
-      blob = png
-    } else {
-      blob = jpeg
-    }
+    blob = await canvasToBlob(flat, 'image/jpeg', o.jpegQuality)
   }
   const data = await readAsDataUrl(blob)
   const kb = dataUrlKb(data)
