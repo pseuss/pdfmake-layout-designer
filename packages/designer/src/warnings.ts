@@ -48,7 +48,6 @@ export function layoutTemplates(layout: Layout): { where: string; template: stri
       block.rows.forEach((r) => out.push({ where, template: r.label }, { where, template: r.value }))
     }
   })
-  if (layout.page.footer) out.push({ where: 'footer', template: layout.page.footer.content })
   return out
 }
 

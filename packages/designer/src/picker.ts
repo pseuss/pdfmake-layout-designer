@@ -13,7 +13,7 @@ export function buildToken(path: string, formatter: string): string {
  * Placeholder picker: grouped fields from the Host App's catalog (or a free path input without a catalog),
  * an optional formatter and an insert button.
  */
-export function createPicker(catalog: PlaceholderCatalog | undefined, t: Translator, onInsert: (token: string) => void, testId = 'picker'): HTMLElement {
+export function createPicker(catalog: PlaceholderCatalog | undefined, t: Translator, onInsert: (token: string) => void, testId = 'picker', options: { pageVars?: boolean } = {}): HTMLElement {
   let control: HTMLSelectElement | HTMLInputElement
   if (catalog?.groups.length) {
     const select = h('select', { class: 'pld-select', 'data-testid': `${testId}-field`, 'aria-label': t('picker.placeholder') }, h('option', { value: '' }, t('picker.placeholder')))
@@ -51,7 +51,14 @@ export function createPicker(catalog: PlaceholderCatalog | undefined, t: Transla
     },
     t('action.insert'),
   )
-  return h('div', { class: 'pld-picker' }, control, formatter, insert)
+  const row = h('div', { class: 'pld-picker' }, control, formatter, insert)
+  if (options.pageVars) {
+    // built-in variables for page numbers: only meaningful in elements placed on the page, not in flowing text
+    const pageButton = (name: 'page' | 'pages', label: string) =>
+      h('button', { type: 'button', class: 'pld-btn pld-btn-sm', title: `{{${name}}}`, 'data-testid': `${testId}-${name}`, onClick: () => onInsert(`{{${name}}}`) }, label)
+    row.append(pageButton('page', t('picker.page')), pageButton('pages', t('picker.pages')))
+  }
+  return row
 }
 
 /** Inserts text at the cursor of a textarea or input and notifies listeners. */

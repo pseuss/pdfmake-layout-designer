@@ -230,9 +230,6 @@ export const PageSchema = z.object({
   defaults: z
     .object({ font: z.string().default('Roboto'), size: z.number().positive().default(10), color: color.default('#222222') })
     .default(() => ({ font: 'Roboto', size: 10, color: '#222222' })),
-  footer: z
-    .object({ content: z.string(), align: z.enum(['left', 'center', 'right']).default('right'), size: z.number().positive().default(8), font: z.string().optional() })
-    .optional(),
 })
 
 export const AssetSchema = z.object({

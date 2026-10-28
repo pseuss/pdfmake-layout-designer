@@ -1,4 +1,4 @@
-import { createEmptyLayout, parseLayout, type Data, type FontRegistry, type Layout, type LayoutInput } from '@pdf-layouter/core'
+import { createDefaultLayout, pageNumberElement, parseLayout, type Data, type FontRegistry, type Layout, type LayoutInput } from '@pdf-layouter/core'
 import { deleteSelection, duplicateSelection, moveFlow, nudgeSelection } from './actions'
 import { Canvas } from './canvas'
 import { clear, h, isEditable } from './dom'
@@ -64,7 +64,7 @@ export class Designer {
     injectStyles(options.container.ownerDocument)
     this.t = createTranslator(options.locale ?? 'de')
     this.imageOptions = { ...DEFAULT_IMAGE_OPTIONS, ...options.images }
-    this.store = new Store(options.layout ? parseLayout(options.layout) : createEmptyLayout())
+    this.store = new Store(options.layout ? parseLayout(options.layout) : createDefaultLayout())
     this.store.catalog = options.placeholders
     this.store.sampleData = options.sampleData ?? {}
     if (options.grid && options.grid > 0) this.store.grid = options.grid
@@ -272,6 +272,7 @@ export class Designer {
         btn('add.line', 'add-line', () => this.addStatic(newLine, 'line')),
         btn('add.rect', 'add-rect', () => this.addStatic(newRect, 'rect')),
         btn('add.address', 'add-address', () => this.addStatic(newAddress, 'address')),
+        btn('add.pagenumber', 'add-pagenumber', () => this.addStatic((id) => pageNumberElement(this.store.layout.page, id), 'pagenumber')),
       )),
       h('div', null, h('div', { class: 'pld-section-title' }, `${T('add.title')} · ${T('flow.title')}`), h('div', { class: 'pld-btn-grid' },
         btn('add.flowText', 'add-flow-text', () => this.addFlow('text')),

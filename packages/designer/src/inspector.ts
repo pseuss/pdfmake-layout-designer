@@ -256,7 +256,7 @@ export class Inspector {
     area.addEventListener('input', () => onChange(area.value))
     area.addEventListener('focus', () => (this.lastInput = area))
     this.lastInput = area
-    const picker = createPicker(this.store.catalog, this.t, (token) => insertAtCursor(area, token), `${testId}-picker`)
+    const picker = createPicker(this.store.catalog, this.t, (token) => insertAtCursor(area, token), `${testId}-picker`, { pageVars: true })
     return h('div', { class: 'pld-group' }, this.field(label, area, testId, true), picker)
   }
 
@@ -579,10 +579,6 @@ export class Inspector {
       ...box('first'),
       h('div', { class: 'pld-section-title' }, T('page.followBox')),
       ...box('follow'),
-      h('div', { class: 'pld-section-title' }, T('page.footer')),
-      this.text(T('page.footer'), layout.page.footer?.content ?? '', (v) => set((d) => void (d.page.footer = v ? { content: v, align: d.page.footer?.align ?? 'right', size: d.page.footer?.size ?? 8 } : undefined)), 'footer'),
-      this.fontField(layout.page.footer?.font, (v) => set((d) => void (d.page.footer && (d.page.footer.font = v))), 'footer-font'),
-      this.select(T('page.footerAlign'), (['left', 'center', 'right'] as const).map((a) => [a, T(`align.${a}` as const)] as const), layout.page.footer?.align ?? 'right', (v) => set((d) => void (d.page.footer && (d.page.footer.align = v as 'left' | 'center' | 'right'))), 'footer-align'),
     )
   }
 }

@@ -4,6 +4,7 @@ import {
   evaluateCondition,
   lookup,
   resolvePageTemplate,
+  parseTemplate,
   resolveTemplate,
   type Data,
   type FormatContext,
@@ -76,7 +77,6 @@ export function collectFonts(layout: Layout): string[] {
   const fonts = new Set<string>([layout.page.defaults.font])
   for (const el of layout.static) if ('font' in el && el.font) fonts.add(el.font)
   for (const block of layout.flow) if ('font' in block && block.font) fonts.add(block.font)
-  if (layout.page.footer?.font) fonts.add(layout.page.footer.font)
   return [...fonts]
 }
 
@@ -251,10 +251,23 @@ function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: War
 
 // ---- static layer -----------------------------------------------------------
 
+interface PageCounters {
+  page: number
+  pages: number
+}
+
 interface StaticNode {
   rule: PageRule
-  node: Node
+  /** Ready node; elements that use `{{page}}` / `{{pages}}` provide `build` instead and are rendered per page. */
+  node?: Node
+  build?: (counters: PageCounters) => Node
 }
+
+const PAGE_TOKENS = new Set(['page', 'pages'])
+/** Whether a template contains `{{page}}` or `{{pages}}`. */
+const PAGES_TOKEN = /\{\{\s*pages\s*(\|[^}]*)?\}\}/
+
+export const usesPageTokens = (template: string | undefined): boolean => !!template && parseTemplate(template).some((t) => t.kind === 'placeholder' && PAGE_TOKENS.has(t.path))
 
 function textProps(el: { font?: string | undefined; size?: number | undefined; color?: string | undefined; bold?: boolean | undefined; italic?: boolean | undefined; align: string }): Node {
   const props: Node = { alignment: el.align }
@@ -267,10 +280,13 @@ function textProps(el: { font?: string | undefined; size?: number | undefined; c
 }
 
 function staticNodes(layout: Layout, data: Data, ctx: FormatContext, warn: (w: Warning) => void): StaticNode[] {
-  const resolve = (s: string) => resolveTemplate(s, data, ctx, warn)
+  let counters: PageCounters | undefined
+  const resolve = (s: string) => (counters ? resolvePageTemplate(s, data, ctx, counters, warn) : resolveTemplate(s, data, ctx, warn))
   const result: StaticNode[] = []
   for (const el of layout.static as StaticElement[]) {
     if (!evaluateCondition(el.visibleWhen, data)) continue
+    const build = (pc?: PageCounters): Node => {
+    counters = pc
     let node: Node
     switch (el.type) {
       case 'image': {
@@ -329,7 +345,14 @@ function staticNodes(layout: Layout, data: Data, ctx: FormatContext, warn: (w: W
         break
       }
     }
-    result.push({ rule: el.pages, node })
+    return node
+    }
+    if ((el.type === 'text' || el.type === 'address') && (usesPageTokens(el.content) || usesPageTokens(el.type === 'address' ? el.returnAddress : undefined))) {
+      build({ page: 1, pages: 1 }) // dry run: reports missing values once
+      result.push({ rule: el.pages, build })
+    } else {
+      result.push({ rule: el.pages, node: build() })
+    }
   }
   return result
 }
@@ -355,7 +378,8 @@ export function compile(layoutInput: Layout | LayoutInput | unknown, records: Da
   const fonts = collectFonts(layout)
 
   const hasLastRule = layout.static.some((e) => e.pages === 'last')
-  const needsPageMap = hasLastRule || records.length > 1
+  const usesPageCount = layout.static.some((e) => (e.type === 'text' || e.type === 'address') && (PAGES_TOKEN.test(e.content) || (e.type === 'address' && PAGES_TOKEN.test(e.returnAddress ?? ''))))
+  const needsPageMap = hasLastRule || usesPageCount || records.length > 1
   const pageMap = options.pageMap
 
   if (needsPageMap && !pageMap && !options.omitStatic) {
@@ -404,25 +428,9 @@ export function compile(layoutInput: Layout | LayoutInput | unknown, records: Da
       const rec = recordAt(currentPage)
       const isFirst = currentPage === rec.start
       const isLast = rec.end !== undefined && currentPage === rec.end
-      const nodes = (perRecordStatic[rec.index] ?? []).filter((s) => pageRuleMatches(s.rule, isFirst, isLast)).map((s) => s.node)
+      const counters: PageCounters = { page: currentPage - rec.start + 1, pages: rec.end !== undefined ? rec.end - rec.start + 1 : currentPage }
+      const nodes = (perRecordStatic[rec.index] ?? []).filter((s) => pageRuleMatches(s.rule, isFirst, isLast)).map((s) => s.node ?? s.build!(counters))
       return nodes.length ? { stack: nodes } : null
-    }
-  }
-
-  const footer = layout.page.footer
-  if (footer && !options.omitStatic) {
-    records.forEach((record) => resolvePageTemplate(footer.content, record, ctx, { page: 1, pages: 1 }, warn))
-    doc.footer = (currentPage: number, pageCount: number) => {
-      const rec = recordAt(currentPage)
-      const page = pageMap ? currentPage - rec.start + 1 : currentPage
-      const pages = pageMap && rec.end !== undefined ? rec.end - rec.start + 1 : pageCount
-      return {
-        text: resolvePageTemplate(footer.content, records[rec.index], ctx, { page, pages }),
-        alignment: footer.align,
-        fontSize: footer.size,
-        ...(footer.font ? { font: footer.font } : {}),
-        margin: [margins[0] ?? 0, 10, margins[2] ?? 0, 0],
-      }
     }
   }
 

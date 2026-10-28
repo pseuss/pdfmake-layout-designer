@@ -21,7 +21,7 @@ const params = new URLSearchParams(location.search)
 const changes: core.Layout[] = []
 
 const start = params.get('layout')
-const layout = start === 'empty' ? undefined : start === 'serial' ? serialLayout(assets) : invoiceLayout(assets)
+const layout = start === 'empty' ? { schemaVersion: 1 as const } : start === 'new' ? undefined : start === 'serial' ? serialLayout(assets) : invoiceLayout(assets)
 const data = start === 'serial' ? serialRecords(1)[0]! : invoiceData(params.has('rows') ? Number(params.get('rows')) : 70)
 
 const designer = new Designer({

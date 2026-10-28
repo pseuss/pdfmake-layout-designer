@@ -25,10 +25,11 @@ export const fontFiles = (base) => [
 
 export const starterLayout = {
   schemaVersion: 1,
-  page: { defaults: { font: 'Inter', size: 10, color: '#222222' }, footer: { content: 'Seite {{page}} von {{pages}}' } },
+  page: { defaults: { font: 'Inter', size: 10, color: '#222222' } },
   static: [
     { id: 'addr', type: 'address', preset: 'DIN5008-B', content: '{{kunde.name}}\n{{kunde.strasse}}\n{{kunde.ort}}' },
     { id: 'meta', type: 'text', x: 125, y: 50, w: 65, align: 'right', content: 'Rechnung {{rechnung.nummer}}\nDatum: {{rechnung.datum | date}}' },
+    { id: 'pagenumber', type: 'text', x: 25, y: 270.5, w: 165, align: 'right', size: 8, content: 'Seite {{page}} von {{pages}}' },
   ],
   flow: [
     { type: 'text', content: 'Sehr geehrte Damen und Herren,\n\nwir berechnen Ihnen folgende Leistungen.' },

@@ -58,7 +58,7 @@ describe('React wrapper (A3)', () => {
     let designer: Designer | undefined
     const props = (value?: Layout) => ({ value, onChange: (l: Layout) => saved.push(l), onReady: (d: Designer) => (designer = d) })
     render(props(undefined)) // page rendered, request still running
-    expect(designer!.getLayout().static).toEqual([])
+    expect(designer!.getLayout().static.map((e) => e.id)).toEqual(['pagenumber']) // a new Designer starts with the page number element
     const fromDb = { schemaVersion: 1, locale: 'en-GB', static: [{ id: 'r', type: 'rect', x: 1, y: 1, w: 10, h: 10 }] } as unknown as Layout
     render(props(fromDb)) // request finished
     expect(container.querySelectorAll('[data-type=rect]')).toHaveLength(1)
@@ -78,7 +78,7 @@ describe('React wrapper (A3)', () => {
     expect(container.querySelectorAll('[data-type=rect]')).toHaveLength(1)
     click('add-text')
     render(props())
-    expect(current!.static.map((e) => e.type)).toEqual(['rect', 'text'])
+    expect(current!.static.map((e) => e.type)).toEqual(['text', 'rect', 'text']) // page number element, then the two added
   })
 
   it('forwards sample data and placeholder catalogs to the Designer', () => {

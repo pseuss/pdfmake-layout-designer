@@ -32,7 +32,7 @@ test('SSR page loads, the Designer mounts on the client, edits are saved and loa
   await page.getByTestId('save').click()
   await expect(page.getByTestId('status')).toHaveText('saved')
   const stored = await (await request.get('/api/layout')).json()
-  expect(stored.static.map((e: { type: string }) => e.type)).toEqual(['address', 'text', 'rect'])
+  expect(stored.static.map((e: { type: string }) => e.type)).toEqual(['address', 'text', 'text', 'rect']) // starter layout incl. the page number element, plus the new rectangle
   expect(stored.schemaVersion).toBe(1)
 
   // a fresh visit loads the stored layout from the "database" into the Designer

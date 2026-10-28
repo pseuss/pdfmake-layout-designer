@@ -1,5 +1,5 @@
 export * from './schema'
-export { LayoutError, parseLayout, migrateLayout, createEmptyLayout, pruneAssets, pageSizeMm, pageRuleMatches, isSvgAsset } from './layout'
+export { LayoutError, parseLayout, migrateLayout, createEmptyLayout, createDefaultLayout, pageNumberElement, pruneAssets, pageSizeMm, pageRuleMatches, isSvgAsset } from './layout'
 export { applyFormatter, evaluateCondition, lookup, parseTemplate, placeholderPaths, resolveTemplate, type Data, type FormatContext, type Token, type Warning } from './placeholders'
 export { compile, toDocDefinition, mmToPt, type CompileOptions, type CompileResult, type DocDefinition, type PageMap } from './compile'
 export { buildPdfmakeFonts, completeFontFiles, loadRobotoData, FALLBACK_FONT, type FontFamily, type FontFiles, type FontRegistry } from './fonts'

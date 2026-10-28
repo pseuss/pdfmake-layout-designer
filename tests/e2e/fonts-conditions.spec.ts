@@ -18,18 +18,17 @@ test.describe('fonts per element', () => {
     expect(((await layout(page)).static.find((e) => e.id === 'meta') as { font?: string }).font).toBeUndefined()
   })
 
-  test('flow blocks and the footer have their own font; the PDF uses them', async ({ page }) => {
+  test('flow blocks and the page number element have their own font; the PDF uses them', async ({ page }) => {
     await open(page, 'layout=empty')
     await page.getByTestId('add-table').click()
     await page.getByTestId('font').selectOption('Merriweather')
     await page.getByTestId('add-totals').click()
     await page.getByTestId('font').selectOption('Roboto')
-    await page.getByTestId('tab-page').click()
-    await page.getByTestId('footer').fill('Seite {{page}}')
-    await page.getByTestId('footer-font').selectOption('Merriweather')
+    await page.getByTestId('add-pagenumber').click()
+    await page.getByTestId('font').selectOption('Merriweather')
     const l = await layout(page)
     expect(l.flow.map((b) => (b as { font?: string }).font)).toEqual(['Merriweather', 'Roboto'])
-    expect(l.page.footer!.font).toBe('Merriweather')
+    expect((l.static[0] as { font?: string }).font).toBe('Merriweather')
     const info = await readPdf(await generate(l, { positionen: [{ beschreibung: 'x' }] }, { fonts: nodeFontRegistry() }))
     expect(info.raw).toMatch(/\+Merriweather-Regular/)
     expect(info.raw).toMatch(/\+Roboto-Regular/)

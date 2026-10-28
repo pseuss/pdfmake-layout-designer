@@ -118,6 +118,12 @@ Canvas with zoom, grid and snap, **rulers (mm) with guides** dragged out of them
 (shift/ctrl-click, Ctrl+A or a rubber-band rectangle dragged on empty space or on the stationery; move, align, duplicate, delete together), **undo/redo** (Ctrl+Z, Ctrl+Shift+Z / Ctrl+Y, 100 steps, `designer.undo()` / `redo()`),
 property panel, layer order, flow list with drag-to-reorder, rich text with colour, size and alignment, placeholder picker, live preview, image optimisation, warnings.
 
+## Page numbers
+
+"Seite x von y" is an ordinary text element, not a hidden footer setting: a new Designer starts with it just below the content box, and you can move it, resize it, restyle it, give it a page rule (e.g. not on the first page), delete it or add more (toolbar: *Seitenzahl*).
+Any static text box or address field can contain `{{page}}` (the current page) and `{{pages}}` (the number of pages), so `Blatt {{page}} / {{pages}}` or `{{page}}` alone work too.
+In a batch the numbers count per record. Layouts saved with the old fixed `page.footer` are converted to such an element when they are loaded.
+
 ## Dynamic content per document
 
 A flow block of type `dynamicSections` renders whatever sequence your app sends in `data[source]`: a table, two text blocks, another table – any order, any length (also none).
@@ -130,7 +136,7 @@ For recipient-specific passages use `visibleWhen` on a block, or a `dynamicSecti
 
 ## Fonts per element
 
-The document font (`page.defaults.font`) is the default. Every text box, address field and flow block (text, table, totals, dynamic sections) and the footer can set
+The document font (`page.defaults.font`) is the default. Every text box, address field and flow block (text, table, totals, dynamic sections) can set
 `"font": "Merriweather"` to use another family from the registry; leave it out to inherit. The Designer offers "Document (Inter)" as the first entry of every font select.
 
 ## Conditional elements (`visibleWhen`)
@@ -157,7 +163,6 @@ All lengths are millimetres.
     "size": "A4", "orientation": "portrait",
     "contentBox": { "first": { "top": 95, "bottom": 30, "left": 25, "right": 20 }, "follow": { "top": 30, "bottom": 30, "left": 25, "right": 20 } },
     "defaults": { "font": "Inter", "size": 10, "color": "#222222" },
-    "footer": { "content": "Seite {{page}} von {{pages}}", "align": "right" }
   },
   "assets": { "img_logo": { "data": "data:image/png;base64,…", "w": 600, "h": 200 } },
   "static": [

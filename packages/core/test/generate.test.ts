@@ -160,7 +160,7 @@ describe('Use case 2: form letters (S1–S3)', () => {
 
   it('numbers footer pages per record', async () => {
     const layout = serialLayout(assets)
-    layout.page = { ...layout.page, footer: { content: 'Blatt {{page}}/{{pages}}', align: 'center' } }
+    layout.static = [...(layout.static ?? []), { id: 'nr', type: 'text', x: 25, y: 275, w: 160, align: 'center', content: 'Blatt {{page}}/{{pages}}' }]
     const records = serialRecords(2).map((r, i) => (i === 0 ? { ...r, extra: Array.from({ length: 60 }, (_, k) => `Zeile ${k}`).join('\n\n') } : r))
     layout.flow = [...(layout.flow ?? []), { type: 'text', content: '{{extra}}' }]
     const info = await readPdf(await generateBatch(layout, records, { fonts }))
@@ -192,11 +192,60 @@ describe('Use case 2: form letters (S1–S3)', () => {
   })
 })
 
+describe('page numbers are normal text elements', () => {
+  const pageNumber = (over: object = {}) => ({ id: 'n', type: 'text' as const, x: 25, y: 270, w: 160, align: 'right' as const, content: 'Seite {{page}} von {{pages}}', ...over })
+  const long = (n: number) => Array.from({ length: n }, (_, i) => `Zeile ${i}`).join('\n\n')
+
+  it('number a multi-page document without any footer setting, wherever they are placed and with any text', async () => {
+    const layout: LayoutInput = {
+      schemaVersion: 1,
+      static: [pageNumber({ x: 100, y: 20, w: 60, align: 'left', content: 'Nr. {{page}} / {{pages}} ({{kunde}})' })],
+      flow: [{ type: 'text', content: long(70) }],
+    }
+    const info = await readPdf(await generate(layout, { kunde: 'K' }))
+    expect(info.numPages).toBeGreaterThan(1)
+    info.pages.forEach((p, i) => {
+      expect(p.text).toContain(`Nr. ${i + 1} / ${info.numPages} (K)`)
+      const item = p.items.find((it) => it.str.startsWith('Nr.'))!
+      expect(topMm(item.y)).toBeLessThan(30) // moved to the top of the page
+      expect(leftMm(item.x)).toBeGreaterThan(99)
+    })
+  })
+
+  it('count per record in a batch, support a page rule, and can be left out entirely', async () => {
+    const layout: LayoutInput = { schemaVersion: 1, static: [pageNumber({ pages: 'notFirst', content: 'S. {{page}}/{{pages}}' })], flow: [{ type: 'text', content: '{{body}}' }] }
+    const records = [{ body: 'kurz' }, { body: long(70) }]
+    const info = await readPdf(await generateBatch(layout, records))
+    expect(info.pages[0]!.text).not.toContain('S. ') // first page of record 1: rule notFirst
+    const rec2 = info.pages.slice(1) // the second record: its own numbering 1..k
+    const k = rec2.length
+    expect(k).toBeGreaterThan(1)
+    expect(rec2[0]!.text).not.toContain('S. ') // first page of that record: rule notFirst
+    rec2.slice(1).forEach((p, i) => expect(p.text).toContain(`S. ${i + 2}/${k}`))
+    const none = await readPdf(await generate({ schemaVersion: 1, flow: [{ type: 'text', content: long(70) }] }, {}))
+    expect(none.pages.map((p) => p.text).join(' ')).not.toContain('Seite')
+  })
+
+  it('also work in the address element and with formatters around them; unknown placeholders still warn', async () => {
+    const warnings: Warning[] = []
+    const layout: LayoutInput = { schemaVersion: 1, static: [pageNumber({ content: '{{page}}/{{pages}} {{fehlt}}' })], flow: [{ type: 'text', content: 'x' }] }
+    const info = await readPdf(await generate(layout, {}, { onWarning: (w) => warnings.push(w) }))
+    expect(info.pages[0]!.text).toContain('1/1')
+    expect(warnings.map((w) => w.message)).toEqual(['No value for placeholder {{fehlt}}'])
+  })
+
+  it('legacy layouts with page.footer render exactly as before', async () => {
+    const legacy = { schemaVersion: 1, page: { footer: { content: 'Seite {{page}} von {{pages}}', align: 'right' } }, flow: [{ type: 'text', content: long(70) }] }
+    const info = await readPdf(await generate(legacy, {}))
+    info.pages.forEach((p, i) => expect(p.text).toContain(`Seite ${i + 1} von ${info.numPages}`))
+  })
+})
+
 describe('fonts per element (document font is the default)', () => {
   const base: LayoutInput = {
     schemaVersion: 1,
-    page: { defaults: { font: 'Inter', size: 10, color: '#222222' }, footer: { content: 'Fuß {{page}}', font: 'Roboto' } } as never,
-    static: [{ id: 't', type: 'text', x: 20, y: 20, w: 100, content: 'Statisch Merri', font: 'Merriweather' }],
+    page: { defaults: { font: 'Inter', size: 10, color: '#222222' } },
+    static: [{ id: 't', type: 'text', x: 20, y: 20, w: 100, content: 'Statisch Merri', font: 'Merriweather' }, { id: 'fn', type: 'text', x: 20, y: 280, w: 100, content: 'Fuß {{page}}', font: 'Roboto' }],
     flow: [
       { type: 'text', content: 'Fließtext erbt Inter' },
       { type: 'text', content: 'Fließtext Merri', font: 'Merriweather' },
@@ -220,7 +269,8 @@ describe('fonts per element (document font is the default)', () => {
     // start marker, inherited text, Merriweather text, Merriweather table, Roboto totals, end marker
     expect(stack.map((n) => n.font)).toEqual([undefined, undefined, 'Merriweather', 'Merriweather', 'Roboto', undefined])
     expect(doc.defaultStyle.font).toBe('Inter')
-    expect(doc.footer(1, 1).font).toBe('Roboto')
+    const footer = (doc.background(1) as { stack: { columns: { font?: string; text: string }[] }[] }).stack[1]!.columns[0]!
+    expect(footer).toMatchObject({ font: 'Roboto', text: 'Fuß 1' })
   })
 
   it('warns once for an unknown per-element font and falls back to Roboto', async () => {

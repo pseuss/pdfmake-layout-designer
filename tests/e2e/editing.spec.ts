@@ -231,17 +231,15 @@ test.describe('property panel', () => {
     expect(top).toBeCloseTo(27 * (await scale(page)), 0)
   })
 
-  test('page settings: size, orientation, defaults and footer', async ({ page }) => {
+  test('page settings: size, orientation, defaults and content box', async ({ page }) => {
     await open(page)
     await page.getByTestId('tab-page').click()
     await page.getByTestId('page-size').selectOption('A5')
     await page.getByTestId('page-orientation').selectOption('landscape')
     await page.getByTestId('default-size').fill('12')
-    await page.getByTestId('footer').fill('Blatt {{page}}')
-    await page.getByTestId('footer-align').selectOption('center')
     await page.getByTestId('page-first-top').fill('80')
     const l = await layout(page)
-    expect(l.page).toMatchObject({ size: 'A5', orientation: 'landscape', footer: { content: 'Blatt {{page}}', align: 'center' }, defaults: { size: 12 }, contentBox: { first: { top: 80 } } })
+    expect(l.page).toMatchObject({ size: 'A5', orientation: 'landscape', defaults: { size: 12 }, contentBox: { first: { top: 80 } } })
     const k = await scale(page)
     const size = await page.getByTestId('page').evaluate((el) => [el.clientWidth, el.clientHeight])
     expect(Math.abs(size[0]! - 210 * k)).toBeLessThan(1) // clientWidth/Height are rounded to whole pixels

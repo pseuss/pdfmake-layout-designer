@@ -31,15 +31,15 @@ describe('compile', () => {
     const pageMap = { records: [{ start: 1, end: 3 }] }
     const { docDefinition } = compile(invoiceLayout(assets), [invoiceData(3)], { pageMap })
     const types = (page: number) => bg(docDefinition, page)!.stack.map((n) => ('image' in n ? 'image' : 'canvas' in n ? 'canvas' : 'columns' in n ? 'text' : '?'))
-    // bg(first) logo(all) bar(notFirst) sep(first) addr(first) meta(first) end(last)
-    expect(types(1)).toEqual(['image', 'image', 'canvas', 'text', 'text'])
-    expect(types(2)).toEqual(['image', 'canvas'])
-    expect(types(3)).toEqual(['image', 'canvas', 'text'])
+    // bg(first) logo(all) bar(notFirst) sep(first) addr(first) meta(first) end(last) pagenumber(all)
+    expect(types(1)).toEqual(['image', 'image', 'canvas', 'text', 'text', 'text'])
+    expect(types(2)).toEqual(['image', 'canvas', 'text'])
+    expect(types(3)).toEqual(['image', 'canvas', 'text', 'text'])
   })
 
   it('treats a one-page record as both first and last page', () => {
     const { docDefinition } = compile(invoiceLayout(assets), [invoiceData(3)], { pageMap: { records: [{ start: 1, end: 1 }] } })
-    expect(bg(docDefinition, 1)!.stack).toHaveLength(6) // all but the notFirst bar
+    expect(bg(docDefinition, 1)!.stack).toHaveLength(7) // all but the notFirst bar
   })
 
   it('draws static elements per record using that record’s data', () => {
@@ -122,11 +122,12 @@ describe('compile', () => {
     expect(compile({ schemaVersion: 1 }, [{}, {}]).needsPageMap).toBe(true)
   })
 
-  it('numbers footer pages per record when a page map is known', () => {
+  it('numbers pages per record with the {{page}} / {{pages}} variables of a text element when a page map is known', () => {
     const { docDefinition } = compile(invoiceLayout(assets), [invoiceData(1), invoiceData(1)], { pageMap: { records: [{ start: 1, end: 2 }, { start: 3, end: 5 }] } })
-    expect(docDefinition.footer(1, 5).text).toBe('Seite 1 von 2')
-    expect(docDefinition.footer(4, 5).text).toBe('Seite 2 von 3')
-    expect(docDefinition.footer(5, 5).text).toBe('Seite 3 von 3')
+    const label = (page: number) => JSON.stringify(bg(docDefinition, page)).match(/Seite \d+ von \d+/)?.[0]
+    expect(label(1)).toBe('Seite 1 von 2')
+    expect(label(4)).toBe('Seite 2 von 3')
+    expect(label(5)).toBe('Seite 3 von 3')
   })
 
   it('deduplicates warnings and does not mutate its inputs', () => {

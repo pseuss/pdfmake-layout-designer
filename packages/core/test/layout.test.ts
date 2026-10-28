@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createEmptyLayout, LayoutError, migrateLayout, parseLayout, pruneAssets, toBlocks } from '@pdf-layouter/core'
+import { createDefaultLayout, pageNumberElement, createEmptyLayout, LayoutError, migrateLayout, parseLayout, pruneAssets, toBlocks } from '@pdf-layouter/core'
 
 describe('parseLayout', () => {
   it('fills defaults for a minimal layout', () => {
@@ -117,5 +117,29 @@ describe('guides', () => {
     expect(() => parseLayout({ schemaVersion: 1, guides: { x: ['a'] } })).toThrow(/Invalid layout/)
     const { generate } = await import('@pdf-layouter/core')
     expect((await generate(layout, {})).length).toBe((await generate({ schemaVersion: 1 }, {})).length)
+  })
+})
+
+describe('page number element', () => {
+  it('a new default layout has "Seite {{page}} von {{pages}}" as an ordinary, editable text element below the content box', () => {
+    const layout = createDefaultLayout()
+    expect(layout.static).toHaveLength(1)
+    expect(layout.static[0]).toMatchObject({ id: 'pagenumber', type: 'text', content: 'Seite {{page}} von {{pages}}', align: 'right', pages: 'all', x: 25, w: 165, y: 270.5 })
+    expect(createEmptyLayout().static).toEqual([]) // an empty layout stays empty
+    expect(createDefaultLayout({ static: [] }).static).toEqual([]) // explicit elements win
+  })
+
+  it('follows page size, orientation and margins', () => {
+    const l = parseLayout({ schemaVersion: 1, page: { size: 'A5', orientation: 'landscape', contentBox: { first: { top: 10, bottom: 20, left: 15, right: 5 }, follow: { top: 10, bottom: 25, left: 15, right: 5 } } } })
+    expect(pageNumberElement(l.page)).toMatchObject({ x: 15, w: 190, y: 148 - 25 + 3.5 })
+  })
+
+  it('migrates the old fixed page.footer into a text element with the same text, alignment, size and font', () => {
+    const migrated = parseLayout({ schemaVersion: 1, page: { footer: { content: 'Blatt {{page}}/{{pages}}', align: 'center', size: 9, font: 'Roboto' } }, static: [{ id: 'footer', type: 'rect', x: 0, y: 0, w: 1, h: 1 }] })
+    expect((migrated.page as Record<string, unknown>).footer).toBeUndefined()
+    expect(migrated.static.map((e) => e.id)).toEqual(['footer', 'footer_2'])
+    expect(migrated.static[1]).toMatchObject({ type: 'text', content: 'Blatt {{page}}/{{pages}}', align: 'center', size: 9, font: 'Roboto', y: 270.5 })
+    expect(parseLayout({ schemaVersion: 1, page: { footer: { content: '' } } }).static).toEqual([]) // an empty footer vanishes
+    expect(parseLayout(migrated)).toEqual(migrated) // idempotent
   })
 })

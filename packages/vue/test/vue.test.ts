@@ -61,7 +61,7 @@ describe('Vue wrapper (A3)', () => {
     const saved: Layout[] = []
     let designer: Designer | undefined
     const { state, container: c } = mount({ modelValue: undefined, 'onUpdate:modelValue': (l: Layout) => saved.push(l), onReady: (d: Designer) => (designer = d) })
-    expect(designer!.getLayout().static).toEqual([])
+    expect(designer!.getLayout().static.map((e) => e.id)).toEqual(['pagenumber']) // a new Designer starts with the page number element
     state.modelValue = { schemaVersion: 1, locale: 'en-GB', static: [{ id: 'r', type: 'rect', x: 1, y: 1, w: 10, h: 10 }] }
     await nextTick()
     expect(c.querySelectorAll('[data-type=rect]')).toHaveLength(1)

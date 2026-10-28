@@ -52,7 +52,6 @@ export function invoiceLayout(assets: FixtureAssets, overrides: Partial<LayoutIn
         follow: { top: 30, bottom: 30, left: 25, right: 20 },
       },
       defaults: { font: 'Inter', size: 10, color: '#222222' },
-      footer: { content: 'Seite {{page}} von {{pages}}', align: 'right' },
     },
     assets: {
       img_bg: { data: assets.background, w: 827, h: 1169 },
@@ -66,6 +65,7 @@ export function invoiceLayout(assets: FixtureAssets, overrides: Partial<LayoutIn
       { id: 'addr', type: 'address', preset: 'DIN5008-B', returnAddress: 'Beispiel AG · Musterweg 1 · 10115 Berlin', content: '{{kunde.name}}\n{{kunde.strasse}}\n{{kunde.plz}} {{kunde.ort}}', pages: 'first' },
       { id: 'meta', type: 'text', x: 125, y: 50, w: 65, align: 'right', content: 'Rechnung {{rechnung.nummer}}\nDatum: {{rechnung.datum | date}}', pages: 'first' },
       { id: 'end', type: 'text', x: 25, y: 280, w: 100, content: 'Vielen Dank für Ihr Vertrauen!', size: 8, pages: 'last' },
+      { id: 'pagenumber', type: 'text', x: 25, y: 270.5, w: 165, align: 'right', size: 8, content: 'Seite {{page}} von {{pages}}', pages: 'all' },
     ],
     flow: [
       { type: 'text', content: [{ text: 'Sehr geehrte Damen und Herren,' }] },

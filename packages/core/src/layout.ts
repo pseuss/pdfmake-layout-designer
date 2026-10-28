@@ -1,4 +1,4 @@
-import { CURRENT_SCHEMA_VERSION, LayoutSchema, PAGE_SIZES_MM, type Layout, type LayoutInput, type PageRule } from './schema'
+import { CURRENT_SCHEMA_VERSION, LayoutSchema, PAGE_SIZES_MM, PageSchema, type Layout, type LayoutInput, type PageRule, type StaticElement } from './schema'
 
 export class LayoutError extends Error {
   constructor(
@@ -25,7 +25,54 @@ export function migrateLayout(input: unknown): unknown {
   }
   // Future migrations go here: `if (version < 2) { ...; doc.schemaVersion = 2 }`
   doc.schemaVersion = CURRENT_SCHEMA_VERSION
-  return doc
+  return migrateLegacyFooter(doc)
+}
+
+type PageGeometry = Pick<Layout['page'], 'size' | 'orientation' | 'contentBox'>
+
+/**
+ * The "Seite x von y" element: a normal Static Element (movable, editable, deletable) that uses the
+ * `{{page}}` and `{{pages}}` variables. It sits where the old fixed footer was: just below the content box.
+ */
+export function pageNumberElement(page: PageGeometry, id = 'pagenumber', overrides: Partial<Extract<StaticElement, { type: 'text' }>> = {}): StaticElement {
+  const { w, h } = PAGE_SIZES_MM[page.size]
+  const [width, height] = page.orientation === 'landscape' ? [h, w] : [w, h]
+  const { first, follow } = page.contentBox
+  return {
+    id,
+    type: 'text',
+    pages: 'all',
+    x: first.left,
+    y: Math.round((height - Math.max(first.bottom, follow.bottom) + 3.5) * 100) / 100,
+    w: Math.round((width - first.left - first.right) * 100) / 100,
+    content: 'Seite {{page}} von {{pages}}',
+    size: 8,
+    align: 'right',
+    ...overrides,
+  }
+}
+
+/** Older layouts carried a fixed `page.footer`; it becomes an ordinary text element so nothing changes visually. */
+function migrateLegacyFooter(doc: Record<string, unknown>): Record<string, unknown> {
+  const page = doc.page
+  if (typeof page !== 'object' || page === null || !('footer' in page)) return doc
+  const { footer, ...rest } = page as Record<string, unknown>
+  const next: Record<string, unknown> = { ...doc, page: rest }
+  const f = footer as { content?: unknown; align?: unknown; size?: unknown; font?: unknown } | null | undefined
+  if (!f || typeof f.content !== 'string' || f.content === '') return next
+  const geometry = PageSchema.safeParse(rest)
+  const element = pageNumberElement(geometry.success ? geometry.data : PageSchema.parse({}), 'footer', {
+    content: f.content,
+    ...(f.align === 'left' || f.align === 'center' || f.align === 'right' ? { align: f.align } : {}),
+    ...(typeof f.size === 'number' && f.size > 0 ? { size: f.size } : {}),
+    ...(typeof f.font === 'string' ? { font: f.font } : {}),
+  })
+  const existing = Array.isArray(doc.static) ? (doc.static as { id?: unknown }[]) : []
+  const ids = new Set(existing.map((e) => e.id))
+  let id = 'footer'
+  for (let n = 2; ids.has(id); n++) id = `footer_${n}`
+  next.static = [...existing, { ...element, id }]
+  return next
 }
 
 /** Validates (and migrates) unknown input into a normalised Layout, filling defaults. */
@@ -49,7 +96,14 @@ export function parseLayout(input: unknown): Layout {
   return layout
 }
 
-/** An empty A4 layout, as used when the Designer starts without a stored Layout. */
+/** A new layout as the Designer starts it: A4, empty, with the page-number element in place (delete or edit it freely). */
+export function createDefaultLayout(overrides: Partial<LayoutInput> = {}): Layout {
+  const base = parseLayout({ schemaVersion: CURRENT_SCHEMA_VERSION, ...overrides })
+  if (overrides.static) return base
+  return { ...base, static: [parseLayout({ schemaVersion: CURRENT_SCHEMA_VERSION, static: [pageNumberElement(base.page)] }).static[0]!] }
+}
+
+/** An empty A4 layout without any elements. */
 export function createEmptyLayout(overrides: Partial<LayoutInput> = {}): Layout {
   return parseLayout({ schemaVersion: CURRENT_SCHEMA_VERSION, ...overrides })
 }

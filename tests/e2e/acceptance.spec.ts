@@ -41,7 +41,7 @@ test('end to end: design an invoice in the Designer, store the JSON, generate th
   await page.getByTestId('tab-page').click()
   await page.getByTestId('page-first-top').fill('95')
   await page.getByTestId('page-follow-top').fill('30')
-  await page.getByTestId('footer').fill('Seite {{page}} von {{pages}}')
+  await page.getByTestId('add-pagenumber').click() // "Seite x von y" is an element like any other
 
   // flow: intro text, two tables (R6, R8), totals (R7), dynamic sections (R9)
   await page.getByTestId('add-flow-text').click()
