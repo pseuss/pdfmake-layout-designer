@@ -23,8 +23,8 @@ describe('compile', () => {
 
   it('warns when first and follow content boxes cannot be represented exactly', () => {
     const warnings: Warning[] = []
-    compile({ schemaVersion: 1, page: { contentBox: { first: { top: 20, bottom: 10, left: 30, right: 10 }, follow: { top: 40, bottom: 10, left: 20, right: 10 } } } }, [{}], { onWarning: (w) => warnings.push(w) })
-    expect(warnings.filter((w) => w.code === 'layout')).toHaveLength(2)
+    compile({ schemaVersion: 1, page: { contentBox: { first: { top: 20, bottom: 10, left: 30, right: 10 }, follow: { top: 40, bottom: 20, left: 20, right: 10 } } } }, [{}], { onWarning: (w) => warnings.push(w) })
+    expect(warnings.filter((w) => w.code === 'layout')).toHaveLength(3)
   })
 
   it('applies page rules to the static layer', () => {

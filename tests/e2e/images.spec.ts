@@ -92,6 +92,42 @@ test.describe('images (R1, R2, 7.2)', () => {
     expect(await dims(page, a.data)).toEqual({ w: 2480, h: 827 })
   })
 
+  test('a flat opaque PNG logo stays lossless PNG, a noisy opaque PNG photo becomes JPEG', async ({ page }) => {
+    await open(page, 'layout=empty')
+    const formats = await page.evaluate(async () => {
+      const make = async (noise: boolean) => {
+        const c = document.createElement('canvas')
+        c.width = 600
+        c.height = 400
+        const ctx = c.getContext('2d')!
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, 600, 400)
+        ctx.fillStyle = '#1f3a5f'
+        for (let i = 0; i < 20; i++) ctx.fillRect(20 + i * 28, 20, 14, 360) // hard-edged flat graphic
+        ctx.font = 'bold 120px sans-serif'
+        ctx.fillStyle = '#c0392b'
+        ctx.fillText('LOGO', 120, 240)
+        if (noise) {
+          const img = ctx.getImageData(0, 0, 600, 400)
+          let seed = 7
+          for (let i = 0; i < img.data.length; i += 4) {
+            seed = (seed * 1664525 + 1013904223) >>> 0
+            img.data[i] = seed >>> 24
+            img.data[i + 1] = (seed >>> 16) & 255
+            img.data[i + 2] = (seed >>> 8) & 255
+          }
+          ctx.putImageData(img, 0, 0)
+        }
+        return new Promise<Blob>((r) => c.toBlob((b) => r(b!), 'image/png'))
+      }
+      const d = (window as any).__app.designer
+      await d.addImage(await make(false))
+      await d.addImage(await make(true))
+      return Object.values(d.getLayout().assets).map((a: any) => a.data.slice(5, a.data.indexOf(';')))
+    })
+    expect(formats).toEqual(['image/png', 'image/jpeg'])
+  })
+
   test('SVG logos are kept as SVG text', async ({ page }) => {
     await open(page, 'layout=empty')
     await page.getByTestId('file-input').setInputFiles(asset('logo.svg'))

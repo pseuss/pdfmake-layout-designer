@@ -69,6 +69,10 @@ export async function processImage(file: Blob, options: Partial<ImageOptions> = 
   if (!/^image\/(png|jpeg|webp|gif|bmp)$/.test(file.type)) throw new Error(`Unsupported image type "${file.type || 'unknown'}"`)
 
   const bitmap = await createImageBitmap(file)
+  // pdfkit ignores EXIF orientation: when the browser rotated the image, the original bytes cannot be kept
+  const raw = await createImageBitmap(file, { imageOrientation: 'none' })
+  const rotated = raw.width !== bitmap.width || raw.height !== bitmap.height
+  raw.close()
   const target = fitWithin(bitmap.width, bitmap.height, o.maxEdgePx)
   const scaled = target.w !== bitmap.width || target.h !== bitmap.height
   const canvas = document.createElement('canvas')
@@ -83,7 +87,7 @@ export async function processImage(file: Blob, options: Partial<ImageOptions> = 
   let format: 'jpeg' | 'png'
   if (file.type === 'image/jpeg') {
     format = 'jpeg'
-    if (scaled) blob = await canvasToBlob(canvas, 'image/jpeg', o.jpegQuality)
+    if (scaled || rotated) blob = await canvasToBlob(canvas, 'image/jpeg', o.jpegQuality)
   } else if (transparent) {
     format = 'png'
     if (scaled || file.type !== 'image/png') blob = await canvasToBlob(canvas, 'image/png')
@@ -97,7 +101,15 @@ export async function processImage(file: Blob, options: Partial<ImageOptions> = 
     flatCtx.fillStyle = '#ffffff'
     flatCtx.fillRect(0, 0, target.w, target.h)
     flatCtx.drawImage(canvas, 0, 0)
-    blob = await canvasToBlob(flat, 'image/jpeg', o.jpegQuality)
+    // opaque PNG/WebP/GIF: JPEG only when PNG is more than twice as big (photos); flat graphics and logos stay lossless PNG
+    const jpeg = await canvasToBlob(flat, 'image/jpeg', o.jpegQuality)
+    const png = file.type === 'image/png' && !scaled ? file : await canvasToBlob(canvas, 'image/png')
+    if (png.size <= jpeg.size * 2) {
+      format = 'png'
+      blob = png
+    } else {
+      blob = jpeg
+    }
   }
   const data = await readAsDataUrl(blob)
   const kb = dataUrlKb(data)

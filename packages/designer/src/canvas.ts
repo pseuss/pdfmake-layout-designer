@@ -1,4 +1,4 @@
-import { applyFormatter, PAGE_SIZES_MM, type FlowBlock, type Layout, type PageRule, type StaticElement } from '@pdf-layouter/core'
+import { ADDRESS_PRESETS, applyFormatter, isSvgAsset, pageRuleMatches, pageSizeMm, type FlowBlock, type Layout, type StaticElement } from '@pdf-layouter/core'
 import { clear, h } from './dom'
 import { cssFontFamily } from './fonts'
 import { boxToRect, HANDLES, moveRect, rectToBox, resizeRect, round, snapValue, type Handle, type Rect } from './geometry'
@@ -8,19 +8,6 @@ import { previewText } from './warnings'
 
 const MM_PX = 96 / 25.4
 const PT_PX = 96 / 72
-
-const ADDRESS = { 'DIN5008-A': { x: 20, y: 27, returnHeight: 17.7 }, 'DIN5008-B': { x: 20, y: 45, returnHeight: 12.7 } } as const
-
-export function pageSizeMm(layout: Layout): { w: number; h: number } {
-  const { w, h } = PAGE_SIZES_MM[layout.page.size]
-  return layout.page.orientation === 'landscape' ? { w: h, h: w } : { w, h }
-}
-
-/** Whether a Static Element is drawn on the given view (`last` can also be page 1 of a one-page document). */
-export function appliesTo(rule: PageRule, view: View): boolean {
-  if (view === 'first') return rule === 'all' || rule === 'first'
-  return rule === 'all' || rule === 'notFirst' || rule === 'last'
-}
 
 interface Session {
   startX: number
@@ -54,6 +41,12 @@ export class Canvas {
       const p = this.pointToMm(e)
       this.readout.textContent = `${p.x.toFixed(1)} / ${p.y.toFixed(1)} mm`
     })
+  }
+
+  /** Whether a Static Element is drawn on the current view (`last` can also be page 1 of a one-page document). */
+  private appliesTo(rule: StaticElement['pages']): boolean {
+    const first = this.store.view === 'first'
+    return pageRuleMatches(rule, first, !first)
   }
 
   private get scale(): number {
@@ -113,7 +106,7 @@ export class Canvas {
   private renderStatic(el: StaticElement, layout: Layout): HTMLElement {
     const selected = this.store.selection.kind === 'static' && this.store.selection.id === el.id
     const node = h('div', {
-      class: `pld-el pld-el-${el.type}${selected ? ' is-selected' : ''}${appliesTo(el.pages, this.store.view) ? '' : ' is-dimmed'}`,
+      class: `pld-el pld-el-${el.type}${selected ? ' is-selected' : ''}${this.appliesTo(el.pages) ? '' : ' is-dimmed'}`,
       'data-testid': `el-${el.id}`,
       'data-type': el.type,
       'data-id': el.id,
@@ -143,7 +136,7 @@ export class Canvas {
         const asset = layout.assets[el.asset]
         this.placeRect(node, el)
         if (asset) {
-          const src = asset.data.trimStart().startsWith('<') ? `data:image/svg+xml;utf8,${encodeURIComponent(asset.data)}` : asset.data
+          const src = isSvgAsset(asset.data) ? `data:image/svg+xml;utf8,${encodeURIComponent(asset.data)}` : asset.data
           node.append(h('img', { src, alt: '', draggable: false }))
         }
         if (selected) this.addHandles(node, HANDLES)
@@ -162,7 +155,10 @@ export class Canvas {
       case 'line': {
         this.layoutLine(node, { x: el.x1, y: el.y1 }, { x: el.x2, y: el.y2 }, el)
         if (selected) {
-          node.append(h('div', { class: 'pld-handle', 'data-handle': 'p1', style: { left: '-6px', top: '-6px', cursor: 'crosshair' } }), h('div', { class: 'pld-handle', 'data-handle': 'p2', style: { right: '-6px', bottom: '-6px', cursor: 'crosshair' } }))
+          const at = (fromStart: boolean, startLow: boolean) => (fromStart === startLow ? '-6px' : 'calc(100% - 6px)')
+          const handle = (name: string, left: string, top: string) => h('div', { class: 'pld-handle', 'data-handle': name, style: { left, top, cursor: 'crosshair' } })
+          // p1 sits on the first endpoint, which is not always the top-left corner of the bounding box
+          node.append(handle('p1', at(true, el.x1 <= el.x2), at(true, el.y1 <= el.y2)), handle('p2', at(false, el.x1 <= el.x2), at(false, el.y1 <= el.y2)))
         }
         break
       }
@@ -174,8 +170,8 @@ export class Canvas {
         break
       }
       case 'address': {
-        const g = ADDRESS[el.preset]
-        this.placeRect(node, { x: g.x, y: g.y, w: 85, h: 45 })
+        const g = ADDRESS_PRESETS[el.preset]
+        this.placeRect(node, { x: g.x, y: g.y, w: g.w, h: g.h })
         const body = h('div', { style: { position: 'absolute', left: '0', right: '0', top: this.px(g.returnHeight), whiteSpace: 'pre-wrap' } })
         textStyle(el)
         if (el.returnAddress) {

@@ -1,4 +1,4 @@
-import { CURRENT_SCHEMA_VERSION, LayoutSchema, type Layout, type LayoutInput } from './schema'
+import { CURRENT_SCHEMA_VERSION, LayoutSchema, PAGE_SIZES_MM, type Layout, type LayoutInput, type PageRule } from './schema'
 
 export class LayoutError extends Error {
   constructor(
@@ -59,4 +59,29 @@ export function pruneAssets(layout: Layout): Layout {
   const used = new Set(layout.static.filter((e) => e.type === 'image').map((e) => (e as { asset: string }).asset))
   const assets = Object.fromEntries(Object.entries(layout.assets).filter(([key]) => used.has(key)))
   return { ...layout, assets }
+}
+
+/** Page size in mm with the orientation applied. */
+export function pageSizeMm(layout: Layout): { w: number; h: number } {
+  const { w, h } = PAGE_SIZES_MM[layout.page.size]
+  return layout.page.orientation === 'landscape' ? { w: h, h: w } : { w, h }
+}
+
+/** Whether a Page Rule draws on a page, given whether it is the first / last page of its Record. */
+export function pageRuleMatches(rule: PageRule, isFirst: boolean, isLast: boolean): boolean {
+  switch (rule) {
+    case 'all':
+      return true
+    case 'first':
+      return isFirst
+    case 'notFirst':
+      return !isFirst
+    case 'last':
+      return isLast
+  }
+}
+
+/** Assets are either bitmap data URLs or inline SVG markup. */
+export function isSvgAsset(data: string): boolean {
+  return data.trimStart().startsWith('<')
 }

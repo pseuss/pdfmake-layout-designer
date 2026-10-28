@@ -78,6 +78,9 @@ export function collectWarnings(layout: Layout, sampleData: Data, catalog?: Plac
   if (first.left !== follow.left || first.right !== follow.right) {
     add({ code: 'content-box', message: 'Left/right margins differ between page 1 and follow-up pages; the page 1 values apply to all pages.' })
   }
+  if (first.bottom !== follow.bottom) {
+    add({ code: 'content-box', message: 'Bottom margins differ between page 1 and follow-up pages; the larger value applies to all pages.' })
+  }
   if (first.top < follow.top) {
     add({ code: 'content-box', message: 'The top margin of page 1 is smaller than on follow-up pages; the smaller value applies to all pages.' })
   }
@@ -102,7 +105,7 @@ export function previewText(template: string, sampleData: Data, format: (value: 
   return parseTemplate(template)
     .map((t) => {
       if (t.kind === 'text') return t.value
-      if (RESERVED.has(t.path)) return t.path === 'page' ? '1' : '1'
+      if (RESERVED.has(t.path)) return '1'
       const value = lookup(sampleData, t.path)
       return value === undefined || value === null ? t.raw : format(value, t.formatter)
     })

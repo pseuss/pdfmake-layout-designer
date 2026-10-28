@@ -1,4 +1,4 @@
-import { parseLayout } from './layout'
+import { isSvgAsset, pageRuleMatches, pageSizeMm, parseLayout } from './layout'
 import {
   applyFormatter,
   lookup,
@@ -10,7 +10,7 @@ import {
 } from './placeholders'
 import {
   ColumnSchema,
-  PAGE_SIZES_MM,
+  ADDRESS_PRESETS,
   RichBlockSchema,
   RunSchema,
   TableStyleSchema,
@@ -77,24 +77,6 @@ export function collectFonts(layout: Layout): string[] {
   return [...fonts]
 }
 
-function ruleMatches(rule: PageRule, isFirst: boolean, isLast: boolean): boolean {
-  switch (rule) {
-    case 'all':
-      return true
-    case 'first':
-      return isFirst
-    case 'notFirst':
-      return !isFirst
-    case 'last':
-      return isLast
-  }
-}
-
-function pageDimensionsMm(layout: Layout): { w: number; h: number } {
-  const { w, h } = PAGE_SIZES_MM[layout.page.size]
-  return layout.page.orientation === 'landscape' ? { w: h, h: w } : { w, h }
-}
-
 /**
  * pdfmake has one set of page margins per document. The Content Box is therefore mapped to the
  * margins of the follow-up pages plus a spacer on the first page of every record (see ADR 0001).
@@ -102,6 +84,9 @@ function pageDimensionsMm(layout: Layout): { w: number; h: number } {
 function computeMargins(first: Box, follow: Box, warn: (w: Warning) => void) {
   if (first.left !== follow.left || first.right !== follow.right) {
     warn({ code: 'layout', message: 'contentBox.first and contentBox.follow differ in left/right; the first page values are used for all pages' })
+  }
+  if (first.bottom !== follow.bottom) {
+    warn({ code: 'layout', message: 'contentBox.first.bottom and contentBox.follow.bottom differ; the larger value is used for all pages' })
   }
   let top = follow.top
   if (first.top < follow.top) {
@@ -259,12 +244,6 @@ function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: War
 
 // ---- static layer -----------------------------------------------------------
 
-const ADDRESS_GEOMETRY = {
-  // DIN 5008: return-address zone, then the 27.3 mm recipient zone, 85 mm wide, 20 mm from the left edge.
-  'DIN5008-A': { x: 20, top: 27, returnHeight: 17.7 },
-  'DIN5008-B': { x: 20, top: 45, returnHeight: 12.7 },
-} as const
-
 interface StaticNode {
   rule: PageRule
   node: Node
@@ -289,7 +268,7 @@ function staticNodes(layout: Layout, data: Data, ctx: FormatContext, warn: (w: W
       case 'image': {
         const asset = layout.assets[el.asset]!
         const common = { absolutePosition: { x: mmToPt(el.x), y: mmToPt(el.y) } }
-        node = asset.data.trimStart().startsWith('<')
+        node = isSvgAsset(asset.data)
           ? { svg: asset.data, width: mmToPt(el.w), height: mmToPt(el.h), ...common }
           : { image: `asset:${el.asset}`, width: mmToPt(el.w), height: mmToPt(el.h), ...common }
         break
@@ -329,15 +308,15 @@ function staticNodes(layout: Layout, data: Data, ctx: FormatContext, warn: (w: W
         }
         break
       case 'address': {
-        const g = ADDRESS_GEOMETRY[el.preset]
+        const g = ADDRESS_PRESETS[el.preset]
         const stack: Node[] = []
         if (el.returnAddress) {
           stack.push({ text: resolve(el.returnAddress), fontSize: 7, color: '#555555', decoration: 'underline', margin: [0, mmToPt(g.returnHeight) - 14, 0, 0] })
         }
         stack.push({ text: resolve(el.content), ...textProps(el), margin: [0, el.returnAddress ? 4 : mmToPt(g.returnHeight), 0, 0] })
         node = {
-          columns: [{ width: mmToPt(85), stack }],
-          absolutePosition: { x: mmToPt(g.x), y: mmToPt(g.top) },
+          columns: [{ width: mmToPt(g.w), stack }],
+          absolutePosition: { x: mmToPt(g.x), y: mmToPt(g.y) },
         }
         break
       }
@@ -349,7 +328,7 @@ function staticNodes(layout: Layout, data: Data, ctx: FormatContext, warn: (w: W
 
 // ---- compile ---------------------------------------------------------------
 
-/** Compiles a Layout and one data record per rendered letter into a pdfmake document definition. */
+/** Compiles a Layout and one Record per rendered letter into a pdfmake document definition. */
 export function compile(layoutInput: Layout | LayoutInput | unknown, records: Data[], options: CompileOptions = {}): CompileResult {
   const warnings: Warning[] = []
   const seen = new Set<string>()
@@ -363,7 +342,7 @@ export function compile(layoutInput: Layout | LayoutInput | unknown, records: Da
 
   const layout = parseLayout(layoutInput)
   const ctx: FormatContext = { locale: layout.locale, currency: layout.currency }
-  const dims = pageDimensionsMm(layout)
+  const dims = pageSizeMm(layout)
   const { margins, firstPageSpacer } = computeMargins(layout.page.contentBox.first, layout.page.contentBox.follow, warn)
   const fonts = collectFonts(layout)
 
@@ -401,7 +380,7 @@ export function compile(layoutInput: Layout | LayoutInput | unknown, records: Da
 
   const images: Record<string, string> = {}
   for (const [key, asset] of Object.entries(layout.assets)) {
-    if (!asset.data.trimStart().startsWith('<')) images[`asset:${key}`] = asset.data
+    if (!isSvgAsset(asset.data)) images[`asset:${key}`] = asset.data
   }
 
   const doc: DocDefinition = {
@@ -417,7 +396,7 @@ export function compile(layoutInput: Layout | LayoutInput | unknown, records: Da
       const rec = recordAt(currentPage)
       const isFirst = currentPage === rec.start
       const isLast = rec.end !== undefined && currentPage === rec.end
-      const nodes = (perRecordStatic[rec.index] ?? []).filter((s) => ruleMatches(s.rule, isFirst, isLast)).map((s) => s.node)
+      const nodes = (perRecordStatic[rec.index] ?? []).filter((s) => pageRuleMatches(s.rule, isFirst, isLast)).map((s) => s.node)
       return nodes.length ? { stack: nodes } : null
     }
   }

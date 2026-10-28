@@ -42,8 +42,8 @@ describe('collectWarnings', () => {
 
 describe('content box warnings', () => {
   it('explains the limits of different first/follow boxes', () => {
-    const l = parseLayout({ schemaVersion: 1, page: { contentBox: { first: { top: 20, bottom: 10, left: 30, right: 10 }, follow: { top: 40, bottom: 10, left: 20, right: 10 } } } })
-    expect(collectWarnings(l, {}).map((w) => w.code)).toEqual(['content-box', 'content-box'])
+    const l = parseLayout({ schemaVersion: 1, page: { contentBox: { first: { top: 20, bottom: 10, left: 30, right: 10 }, follow: { top: 40, bottom: 20, left: 20, right: 10 } } } })
+    expect(collectWarnings(l, {}).map((w) => w.code)).toEqual(['content-box', 'content-box', 'content-box'])
     expect(collectWarnings(parseLayout({ schemaVersion: 1 }), {})).toEqual([])
   })
 })

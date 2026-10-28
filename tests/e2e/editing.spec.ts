@@ -66,6 +66,22 @@ test.describe('canvas: adding and manipulating static elements (R1–R5)', () =>
     expect(a.y2).toBe(b.y2 + 10)
   })
 
+  test('R4: line handles sit on the real endpoints, also for lines that run upwards', async ({ page }) => {
+    await open(page, 'layout=empty')
+    await page.evaluate(() =>
+      (window as any).__app.designer.setLayout({ schemaVersion: 1, static: [{ id: 'l', type: 'line', x1: 10, y1: 50, x2: 100, y2: 20 }] }),
+    )
+    await page.locator('[data-id=l]').click({ force: true })
+    const line = (await page.locator('[data-id=l]').boundingBox())!
+    const p1 = (await page.locator('[data-handle=p1]').boundingBox())!
+    const p2 = (await page.locator('[data-handle=p2]').boundingBox())!
+    const near = (a: number, b: number) => expect(Math.abs(a - b)).toBeLessThan(3)
+    near(p1.x + 5, line.x) // start: left ...
+    near(p1.y + 5, line.y + line.height) // ... and bottom
+    near(p2.x + 5, line.x + line.width) // end: right ...
+    near(p2.y + 5, line.y) // ... and top
+  })
+
   test('R4: a whole line can be moved', async ({ page }) => {
     await open(page, 'layout=empty')
     await page.getByTestId('add-line').click()

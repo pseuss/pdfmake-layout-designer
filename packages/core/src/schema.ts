@@ -187,6 +187,12 @@ export const PAGE_SIZES_MM = {
   LEGAL: { w: 215.9, h: 355.6 },
 } as const
 
+/** DIN 5008 address windows in mm: recipient zone is 85 mm wide, below the return-address zone. */
+export const ADDRESS_PRESETS = {
+  'DIN5008-A': { x: 20, y: 27, w: 85, h: 45, returnHeight: 17.7 },
+  'DIN5008-B': { x: 20, y: 45, w: 85, h: 45, returnHeight: 12.7 },
+} as const
+
 const BoxSchema = z.object({ top: mm.nonnegative(), bottom: mm.nonnegative(), left: mm.nonnegative(), right: mm.nonnegative() })
 export type Box = z.infer<typeof BoxSchema>
 

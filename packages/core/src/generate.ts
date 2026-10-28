@@ -47,6 +47,7 @@ const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefine
 
 let pdfmakePromise: Promise<PdfMake> | undefined
 let robotoRegistered = false
+let attachmentCounter = 0
 
 async function loadPdfMake(): Promise<PdfMake> {
   pdfmakePromise ??= import('pdfmake').then((m) => ((m as { default?: PdfMake }).default ?? (m as unknown as PdfMake)))
@@ -77,7 +78,7 @@ function absolutize(file: string): string {
   return new URL(file, document.baseURI).href
 }
 
-async function renderPdf(pdfmake: PdfMake, doc: DocDefinition, fonts: PdfmakeFonts, registry: FontRegistry, options: GenerateOptions): Promise<Uint8Array> {
+async function renderPdf(pdfmake: PdfMake, doc: DocDefinition, fonts: PdfmakeFonts, options: GenerateOptions): Promise<Uint8Array> {
   const allowed = new Set<string>()
   const table: Record<string, unknown> = {}
   for (const [family, files] of Object.entries(fonts)) {
@@ -90,7 +91,6 @@ async function renderPdf(pdfmake: PdfMake, doc: DocDefinition, fonts: PdfmakeFon
     }
     table[family] = resolved
   }
-  void registry
 
   const pdfDoc: DocDefinition = { ...doc }
   if (options.pdfa) {
@@ -102,8 +102,9 @@ async function renderPdf(pdfmake: PdfMake, doc: DocDefinition, fonts: PdfmakeFon
   if (options.info) pdfDoc.info = { ...options.info }
   if (options.attachments?.length) {
     pdfDoc.files = {}
-    options.attachments.forEach((a, i) => {
-      const vfsName = `pdf-layouter-attachment-${i}-${a.filename}`
+    options.attachments.forEach((a) => {
+      // unique per call so that concurrent generate() calls never overwrite each other's bytes
+      const vfsName = `pdf-layouter-attachment-${++attachmentCounter}-${a.filename}`
       pdfmake.virtualfs.writeFileSync(vfsName, toBase64(a.data), 'base64')
       pdfDoc.files[a.filename] = {
         src: vfsName,
@@ -124,14 +125,14 @@ async function renderPdf(pdfmake: PdfMake, doc: DocDefinition, fonts: PdfmakeFon
 }
 
 /** Lays the document out once and reads the page span of every record from the marker nodes. */
-async function measure(pdfmake: PdfMake, layout: Layout, records: Data[], fonts: PdfmakeFonts, registry: FontRegistry, options: GenerateOptions): Promise<PageMap> {
+async function measure(pdfmake: PdfMake, layout: Layout, records: Data[], fonts: PdfmakeFonts, options: GenerateOptions): Promise<PageMap> {
   const { docDefinition } = compile(layout, records, { omitStatic: true, onWarning: () => {} })
   const pages: Record<string, number> = {}
   docDefinition.pageBreakBefore = (node: { id?: string; startPosition: { pageNumber: number } }) => {
     if (node.id?.startsWith('plr-')) pages[node.id] = node.startPosition.pageNumber
     return false
   }
-  await renderPdf(pdfmake, docDefinition, fonts, registry, { fonts: options.fonts })
+  await renderPdf(pdfmake, docDefinition, fonts, {})
   return {
     records: records.map((_, i) => {
       const start = pages[startMarkerId(i)]
@@ -152,7 +153,7 @@ async function run(layoutInput: Layout | LayoutInput | unknown, records: Data[],
   const probe = compile(layout, records, { omitStatic: true, onWarning: () => {} })
   let pageMap: PageMap | undefined
   if (probe.needsPageMap || options.onePagePerRecord) {
-    pageMap = await measure(pdfmake, layout, records, fonts, registry, options)
+    pageMap = await measure(pdfmake, layout, records, fonts, options)
     if (options.onePagePerRecord) {
       pageMap.records.forEach((r, i) => {
         const count = r.end - r.start + 1
@@ -164,7 +165,7 @@ async function run(layoutInput: Layout | LayoutInput | unknown, records: Data[],
   }
 
   const { docDefinition } = compile(layout, records, { pageMap, onWarning: warn })
-  return renderPdf(pdfmake, docDefinition, fonts, registry, options)
+  return renderPdf(pdfmake, docDefinition, fonts, options)
 }
 
 /** Use case 1: one document from one data object. */
