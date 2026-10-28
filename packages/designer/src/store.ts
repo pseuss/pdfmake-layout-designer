@@ -21,7 +21,8 @@ export class Store {
   selection: Selection = { kind: 'none' }
   view: View = 'first'
   zoom = 1
-  grid = 5
+  /** Grid and snap step in mm. */
+  grid = 2.5
   snap = true
   showGrid = true
   showGuideLines = true

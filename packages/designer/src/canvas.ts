@@ -106,13 +106,17 @@ export class Canvas {
     this.page.dataset.scale = String(this.scale)
 
     if (this.store.showGrid && this.store.grid > 0) {
-      const step = `${this.store.grid * this.scale}px`
+      // fine lines at the grid step, stronger lines every 10 mm to keep orientation
+      const minor = `${this.store.grid * this.scale}px`
+      const major = `${10 * this.scale}px`
+      const line = (dir: string, alpha: number) => `linear-gradient(${dir}, rgba(0,0,0,${alpha}) 1px, transparent 1px)`
+      const withMajor = this.store.grid < 10
       this.page.append(
         h('div', {
           class: 'pld-grid',
           style: {
-            backgroundImage: 'linear-gradient(to right, rgba(0,0,0,.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,.08) 1px, transparent 1px)',
-            backgroundSize: `${step} ${step}`,
+            backgroundImage: [...(withMajor ? [line('to right', 0.14), line('to bottom', 0.14)] : []), line('to right', 0.06), line('to bottom', 0.06)].join(', '),
+            backgroundSize: [...(withMajor ? [`${major} ${major}`, `${major} ${major}`] : []), `${minor} ${minor}`, `${minor} ${minor}`].join(', '),
           },
         }),
       )

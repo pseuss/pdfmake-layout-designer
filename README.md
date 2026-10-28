@@ -46,6 +46,7 @@ const designer = new Designer({
   locale: 'de',                     // 'de' | 'en'
   theme: 'auto',                    // 'light' | 'dark' | 'auto'
   primaryColor: '#0d9488',          // optional: matches the Designer to your app
+  grid: 2.5,                        // grid/snap step in mm (default 2.5; the toolbar offers 1, 2.5, 5, 10)
   onChange: (layout) => save(layout),
 })
 designer.getLayout()   // self-contained JSON (unused images removed)

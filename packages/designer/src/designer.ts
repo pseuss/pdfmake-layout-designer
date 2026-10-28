@@ -27,6 +27,8 @@ export interface DesignerOptions {
   images?: Partial<ImageOptions>
   /** `light`, `dark`, or `auto` (default): follows `<html class="dark">` / `data-theme`, else the operating system. */
   theme?: ThemeMode
+  /** Grid and snap step in mm (default 2.5). The toolbar offers 1, 2.5, 5 and 10. */
+  grid?: number
   /** Accent colour as hex, e.g. `"#0d9488"`, so the Designer matches your app. Text on it switches between white and dark automatically. */
   primaryColor?: string
   /** Called after every edit made in the UI with the current self-contained Layout JSON. */
@@ -47,6 +49,7 @@ export class Designer {
   private flowList = h('div', { class: 'pld-list', 'data-testid': 'flow-list' })
   private staticList = h('div', { class: 'pld-list', 'data-testid': 'static-list' })
   private warningsEl = h('div', { class: 'pld-warnings', 'data-testid': 'warnings' })
+  private gridSelect = h('select', { class: 'pld-select', 'data-testid': 'grid-size', style: { width: 'auto' } })
   private zoomLabel = h('span', { class: 'pld-muted', 'data-testid': 'zoom-label' })
   private tabs: Record<Tab, HTMLElement> = {} as Record<Tab, HTMLElement>
   private panels: Record<Tab, HTMLElement>
@@ -64,6 +67,7 @@ export class Designer {
     this.store = new Store(options.layout ? parseLayout(options.layout) : createEmptyLayout())
     this.store.catalog = options.placeholders
     this.store.sampleData = options.sampleData ?? {}
+    if (options.grid && options.grid > 0) this.store.grid = options.grid
     const fonts = options.fonts ?? []
 
     const readout = h('span', { class: 'pld-readout', 'data-testid': 'readout' })
@@ -283,6 +287,12 @@ export class Designer {
 
   private buildToolbar(readout: HTMLElement): HTMLElement {
     const T = this.t
+    const steps = [...new Set([1, 2.5, 5, 10, this.store.grid])].sort((a, b) => a - b)
+    this.gridSelect.setAttribute('aria-label', T('toolbar.gridSize'))
+    this.gridSelect.title = T('toolbar.gridSize')
+    for (const s of steps) this.gridSelect.append(h('option', { value: String(s) }, `${String(s).replace('.', T('toolbar.decimal'))} mm`))
+    this.gridSelect.value = String(this.store.grid)
+    this.gridSelect.addEventListener('change', () => this.store.setGrid({ grid: Number(this.gridSelect.value) }))
     const mk = (text: string, label: string, testId: string, run: () => void) => h('button', { type: 'button', class: 'pld-btn pld-btn-sm', title: label, 'aria-label': label, 'data-testid': testId, onClick: run }, text)
     return h(
       'div',
@@ -297,6 +307,7 @@ export class Designer {
       mk('+', T('toolbar.zoomIn'), 'zoom-in', () => this.store.setZoom(this.store.zoom + 0.25)),
       mk(T('toolbar.fit'), T('toolbar.fit'), 'zoom-fit', () => this.store.setZoom(this.canvas.fitZoom())),
       mk(T('toolbar.grid'), T('toolbar.grid'), 'toggle-grid', () => this.store.setGrid({ showGrid: !this.store.showGrid })),
+      this.gridSelect,
       mk(T('toolbar.snap'), T('toolbar.snap'), 'toggle-snap', () => this.store.setGrid({ snap: !this.store.snap })),
       mk(T('toolbar.guides'), T('toolbar.guides'), 'toggle-guides', () => this.store.setGrid({ showGuideLines: !this.store.showGuideLines })),
       readout,

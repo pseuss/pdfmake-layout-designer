@@ -337,3 +337,32 @@ test('English UI labels', async ({ page }) => {
   await expect(page.getByTestId('add-rect')).toHaveText('Rectangle')
   await expect(page.getByTestId('tab-preview')).toHaveText('Preview')
 })
+
+test.describe('grid size', () => {
+  test('defaults to 2.5 mm and can be switched to 1, 5 or 10 mm; snapping follows', async ({ page }) => {
+    await open(page, 'layout=empty')
+    await expect(page.getByTestId('grid-size')).toHaveValue('2.5')
+    expect(await page.getByTestId('grid-size').locator('option').allTextContents()).toEqual(['1 mm', '2,5 mm', '5 mm', '10 mm'])
+    await page.getByTestId('add-rect').click()
+    const x0 = ((await layout(page)).static[0] as { x: number }).x
+    await dragBy(page, page.locator('[data-type=rect]'), 7.5, 0)
+    expect(((await layout(page)).static[0] as { x: number }).x).toBe(x0 + 7.5) // 7.5 is a multiple of 2.5
+
+    await page.getByTestId('grid-size').selectOption('10')
+    await dragBy(page, page.locator('[data-type=rect]'), 12, 0)
+    expect((((await layout(page)).static[0] as { x: number }).x) % 10).toBe(0)
+
+    await page.getByTestId('grid-size').selectOption('1')
+    await dragBy(page, page.locator('[data-type=rect]'), 3.4, 0)
+    expect(Number.isInteger(((await layout(page)).static[0] as { x: number }).x)).toBe(true)
+  })
+
+  test('the grid lines follow the step and the option sets the start value', async ({ page }) => {
+    await open(page, 'layout=empty')
+    const k = await scale(page)
+    const size = () => page.locator('.pld-grid').evaluate((el) => getComputedStyle(el).backgroundSize)
+    expect(await size()).toContain(`${(2.5 * k).toFixed(2).replace(/0+$/, '')}`) // minor lines every 2.5 mm
+    await page.getByTestId('grid-size').selectOption('5')
+    expect(await size()).toContain(`${(5 * k).toFixed(2).replace(/0+$/, '')}`)
+  })
+})
