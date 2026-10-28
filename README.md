@@ -57,23 +57,37 @@ designer.getWarnings()             // missing placeholders, big images, …
 designer.destroy()
 ```
 
-**React / Next** (client only):
+**React / Next:**
 
 ```tsx
 import { LayoutDesigner } from '@pdf-layouter/react'
 <LayoutDesigner value={layout} onChange={setLayout} placeholders={catalog} sampleData={sample} fonts={fonts} />
-// Next: const LayoutDesigner = dynamic(() => import('@pdf-layouter/react').then(m => m.LayoutDesigner), { ssr: false })
 ```
 
-**Vue / Nuxt** (client only):
+**Vue / Nuxt:**
 
 ```vue
-<ClientOnly>
-  <LayoutDesigner v-model="layout" :placeholders="catalog" :sample-data="sample" :fonts="fonts" />
-</ClientOnly>
+<LayoutDesigner v-model="layout" :placeholders="catalog" :sample-data="sample" :fonts="fonts" />
 ```
 
-`@pdf-layouter/core` also works on the server (Nitro, Next API routes). The UI packages can be imported during SSR; they only touch the DOM when a Designer is created.
+Both wrappers render an empty frame on the server and create the Designer after mount, so no `dynamic(..., { ssr: false })` or `<ClientOnly>` is needed. The React build is a Client Component module (`"use client"`). `value` / `v-model` is compared **by content**: passing a fresh copy of the same JSON on every render does not reset the Designer or its undo history.
+
+### Server setup (Next and Nuxt)
+
+`generate()` runs in route handlers and server routes. pdfmake has to stay out of the server bundle; one line does that:
+
+```js
+// next.config.mjs
+import { withPdfLayouter } from '@pdf-layouter/react/next'
+export default withPdfLayouter({ /* your config */ })
+```
+
+```ts
+// nuxt.config.ts: also auto-imports <LayoutDesigner>
+export default defineNuxtConfig({ modules: ['@pdf-layouter/vue/nuxt'] })
+```
+
+Return the PDF from a route with `pdfResponse(bytes, { filename })` (a standard `Response`, works in Next route handlers, Nitro, Hono, Bun, Deno).
 
 ## Theming: light, dark and your primary colour
 
@@ -92,23 +106,33 @@ designer.setPrimaryColor('#7c3aed') // hex; undefined restores the default
 
 ## Load and save (the usual Nuxt / Next flow)
 
-The library is stateless and has no storage. Your app loads the JSON, hands it to the Designer, and saves what comes back:
+The library is stateless and has no storage. Your app loads the JSON, hands it to the Designer, and saves what comes back. `useLayoutDocument` does the bookkeeping (loading, unsaved changes, saving, errors); *where* the JSON lives is up to your `load` and `save` functions:
+
+```tsx
+// React / Next
+const doc = useLayoutDocument({
+  load: () => fetch('/api/layout').then((r) => r.json()),          // null: nothing stored yet
+  save: (layout) => fetch('/api/layout', { method: 'PUT', body: JSON.stringify(layout) }).then(() => {}),
+  fallback: starterLayout,                                          // used when nothing is stored
+})
+<LayoutDesigner value={doc.value} onChange={doc.onChange} />
+<button onClick={doc.save}>Save</button> {doc.status}              // loading | new | loaded | dirty | saving | saved | error
+```
 
 ```vue
 <script setup lang="ts">
-const { data: stored } = await useFetch('/api/layout')   // 1. your page fetches the layout from the DB
-const layout = ref(stored.value ?? starterLayout)
-async function save() { await $fetch('/api/layout', { method: 'PUT', body: layout.value }) }   // 3. your own save function
+// Vue / Nuxt: load during SSR, then edit and save
+const { data: stored } = await useFetch('/api/layout')
+const { layout, status, save } = useLayoutDocument({ initial: stored.value, fallback: starterLayout, save: (l) => $fetch('/api/layout', { method: 'PUT', body: l }) })
 </script>
-<template>
-  <ClientOnly><LayoutDesigner v-model="layout" :placeholders="catalog" :sample-data="sample" :fonts="fonts" /></ClientOnly>   <!-- 2. v-model = the JSON, updated on every edit -->
-  <button @click="save">Save</button>
-</template>
+<template><LayoutDesigner v-model="layout" /><button @click="save">Save</button> {{ status }}</template>
 ```
+
+The same workflow without a framework is the `LayoutDocument` class (`@pdf-layouter/designer`): `change` is the Designer's `onChange`, `save()` calls your function, `subscribe` tells you about status changes. An edit made while the stored layout is still loading is never overwritten by it.
 
 * `onChange(layout)` (React) / `v-model` (Vue) / `new Designer({ onChange })` deliver the **complete, self-contained JSON after every edit**.
   `designer.getLayout()` returns the same JSON at any time, so a save button can also read it directly.
-* If the layout arrives *after* the component is mounted (client-side fetch), pass it when it is there: the wrappers call `setLayout()` for you, without echoing it back through `onChange`.
+* If the layout arrives *after* the component is mounted (client-side fetch), pass it when it is there: the wrappers call `setLayout()` for you, without echoing it back through `onChange`. A value with the same content as what the Designer shows is ignored.
 * Fonts, `locale` and `images` are read once when the Designer is created.
 * Working examples with an API route as "database": [`examples/next`](examples/next) and [`examples/nuxt`](examples/nuxt) (`pnpm --filter example-next dev`, `pnpm --filter example-nuxt dev`), both rendering PDFs on the server too.
 
@@ -205,15 +229,19 @@ const placeholderCatalog = {
 
 ## Fonts
 
-Your app serves the font files (TTF/OTF, e.g. from Google Fonts, OFL) and passes a registry. The layout stores only the family name.
+Your app serves the font files (TTF/OTF, e.g. from Google Fonts, OFL) and declares them **once**. The layout stores only the family name.
 
 ```ts
-const fontRegistry = [
-  { family: 'Inter', files: { normal: '/fonts/Inter-Regular.ttf', bold: '/fonts/Inter-Bold.ttf', italics: '/fonts/Inter-Italic.ttf', bolditalics: '/fonts/Inter-BoldItalic.ttf' } },
-]
+import { defineFonts } from '@pdf-layouter/core'
+
+const fonts = defineFonts([
+  { family: 'Inter', files: { normal: 'Inter-Regular.ttf', bold: 'Inter-Bold.ttf', italics: 'Inter-Italic.ttf', bolditalics: 'Inter-BoldItalic.ttf' } },
+])
+fonts.at('/fonts')                          // browser: URLs, for the Designer's `fonts`
+fonts.at(`${process.cwd()}/public/fonts`)   // server: file paths, for generate()'s `fonts`
 ```
 
-URLs in the browser, file paths in Node. Missing styles fall back to the regular file; an unknown family falls back to the bundled **Roboto** (with a warning).
+`FontRegistry` itself is a plain array of `{ family, files }`; use it directly if you prefer. URLs in the browser, file paths in Node. Missing styles fall back to the regular file; an unknown family falls back to the bundled **Roboto** (with a warning).
 The Designer loads the same files through the `FontFace` API so canvas and PDF match.
 
 ## Example: invoices and form letters from a database

@@ -9,6 +9,7 @@ import { icon, type IconName } from './icons'
 import { createTranslator, type Locale, type MessageKey, type Translator } from './i18n'
 import { Inspector } from './inspector'
 import { Preview } from './preview'
+import { sameValue } from './equal'
 import { Store } from './store'
 import { injectStyles } from './styles'
 import { ThemeController, type ResolvedTheme, type ThemeMode } from './theme'
@@ -154,6 +155,18 @@ export class Designer {
 
   setLayout(layout: LayoutInput | Layout): void {
     this.store.setLayout(layout)
+  }
+
+  /**
+   * Whether `layout` is the Layout the Designer shows right now (compared by content, defaults applied).
+   * Wrappers use it to ignore a value that merely echoes the Designer's own output, whatever object identity it has.
+   */
+  matches(layout: LayoutInput | Layout): boolean {
+    try {
+      return sameValue(parseLayout(layout), this.store.layout)
+    } catch {
+      return false
+    }
   }
 
   undo(): void {

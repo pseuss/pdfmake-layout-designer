@@ -1,12 +1,10 @@
-import { generate } from '@pdf-layouter/core'
-import { fontFiles } from '../../../shared/demo-data.mjs'
+import { defineFonts, generate, pdfResponse } from '@pdf-layouter/core'
+import { fontFamilies } from '../../../shared/demo-data.mjs'
 
-// On the server the font registry holds file paths instead of URLs.
-const fonts = fontFiles(`${process.cwd()}/public/fonts`)
+// On the server the same font declaration resolves to file paths.
+const fonts = defineFonts(fontFamilies).at(`${process.cwd()}/public/fonts`)
 
 export default defineEventHandler(async (event) => {
   const { layout, data } = await readBody(event)
-  const pdf = await generate(layout, data, { fonts })
-  setHeader(event, 'content-type', 'application/pdf')
-  return Buffer.from(pdf)
+  return pdfResponse(await generate(layout, data, { fonts }))
 })

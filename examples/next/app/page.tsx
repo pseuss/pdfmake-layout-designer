@@ -1,59 +1,37 @@
 'use client'
 
-import dynamic from 'next/dynamic'
-import { useEffect, useRef, useState } from 'react'
-import type { Layout } from '@pdf-layouter/core'
+import { defineFonts, type LayoutInput } from '@pdf-layouter/core'
+import { LayoutDesigner, useLayoutDocument } from '@pdf-layouter/react'
 import type { PlaceholderCatalog } from '@pdf-layouter/react'
-import { catalog, fontFiles, sampleData, starterLayout } from '../../shared/demo-data.mjs'
+import { catalog, fontFamilies, sampleData, starterLayout } from '../../shared/demo-data.mjs'
 
-// The Designer needs the DOM: load it on the client only.
-const LayoutDesigner = dynamic(() => import('@pdf-layouter/react').then((m) => m.LayoutDesigner), { ssr: false })
+const fonts = defineFonts(fontFamilies).at('/fonts') // the same declaration the server uses, resolved to URLs
+
+const labels = { loading: 'loading…', new: 'new layout', loaded: 'loaded', dirty: 'unsaved changes', saving: 'saving…', saved: 'saved', error: 'error' } as const
 
 export default function Page() {
-  const [layout, setLayout] = useState<Layout | undefined>(undefined)
-  const [status, setStatus] = useState('loading…')
-  const latest = useRef<Layout | undefined>(undefined)
-
-  // 1. load the stored layout from "the database" (an API route here)
-  useEffect(() => {
-    fetch('/api/layout')
-      .then((r) => r.json())
-      .then((stored: Layout | null) => {
-        const initial = (stored ?? starterLayout) as Layout
-        latest.current = initial
-        setLayout(initial)
-        setStatus(stored ? 'loaded' : 'new layout')
-      })
-  }, [])
-
-  // 2. every edit arrives here; keep the latest JSON for saving
-  const onChange = (next: Layout) => {
-    latest.current = next
-    setLayout(next)
-    setStatus('unsaved changes')
-  }
-
-  // 3. the app's own save function writes the JSON back
-  const save = async () => {
-    await fetch('/api/layout', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(latest.current) })
-    setStatus('saved')
-  }
+  // load from "the database" (an API route here), edit, and save with the app's own function
+  const doc = useLayoutDocument({
+    load: () => fetch('/api/layout').then((r) => r.json()),
+    save: (layout) => fetch('/api/layout', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(layout) }).then(() => undefined),
+    fallback: starterLayout as LayoutInput,
+  })
 
   const pdf = async () => {
-    const res = await fetch('/api/pdf', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ layout: latest.current, data: sampleData }) })
+    const res = await fetch('/api/pdf', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ layout: doc.value, data: sampleData }) })
     window.open(URL.createObjectURL(await res.blob()))
   }
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: 8, display: 'flex', gap: 8, alignItems: 'center', borderBottom: '1px solid #ddd', font: '14px system-ui' }}>
-        <button data-testid="save" onClick={save}>Speichern</button>
+        <button data-testid="save" onClick={doc.save}>Speichern</button>
         <button data-testid="pdf" onClick={pdf}>PDF erzeugen (Server)</button>
-        <span data-testid="status">{status}</span>
+        <span data-testid="status">{labels[doc.status]}</span>
         <a href="/generator" style={{ marginLeft: 'auto' }}>Beispiel: Rechnungen &amp; Serienbriefe →</a>
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
-        {layout && <LayoutDesigner value={layout} onChange={onChange} placeholders={catalog as PlaceholderCatalog} sampleData={sampleData} fonts={fontFiles('/fonts')} />}
+        {doc.value && <LayoutDesigner value={doc.value} onChange={doc.onChange} placeholders={catalog as PlaceholderCatalog} sampleData={sampleData} fonts={fonts} />}
       </div>
     </div>
   )

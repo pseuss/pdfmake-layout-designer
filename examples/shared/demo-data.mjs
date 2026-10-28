@@ -18,9 +18,10 @@ export const sampleData = {
   ],
 }
 
-export const fontFiles = (base) => [
-  { family: 'Inter', files: { normal: `${base}/Inter-Regular.ttf`, bold: `${base}/Inter-Bold.ttf`, italics: `${base}/Inter-Italic.ttf`, bolditalics: `${base}/Inter-BoldItalic.ttf` } },
-  { family: 'Merriweather', files: { normal: `${base}/Merriweather-Regular.ttf`, bold: `${base}/Merriweather-Bold.ttf` } },
+// The Host App's fonts, declared once with file names; `defineFonts(fontFamilies)` resolves them for the browser (/fonts) or the server (a directory).
+export const fontFamilies = [
+  { family: 'Inter', files: { normal: 'Inter-Regular.ttf', bold: 'Inter-Bold.ttf', italics: 'Inter-Italic.ttf', bolditalics: 'Inter-BoldItalic.ttf' } },
+  { family: 'Merriweather', files: { normal: 'Merriweather-Regular.ttf', bold: 'Merriweather-Bold.ttf' } },
 ]
 
 export const starterLayout = {

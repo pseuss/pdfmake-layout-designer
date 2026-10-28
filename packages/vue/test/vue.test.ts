@@ -24,6 +24,24 @@ function mount(props: Record<string, unknown>) {
 }
 const click = (c: HTMLElement, testId: string) => c.querySelector<HTMLElement>(`[data-testid="${testId}"]`)!.click()
 
+describe('Vue wrapper: content comparison', () => {
+  it('a fresh copy of the emitted layout neither resets the Designer nor clears undo', async () => {
+    let designer: Designer | undefined
+    const state = reactive<Record<string, unknown>>({ modelValue: undefined, onReady: (d: Designer) => (designer = d) })
+    state['onUpdate:modelValue'] = (l: Layout) => (state.modelValue = structuredClone(l)) // the host stores a copy
+    container = document.createElement('div')
+    document.body.append(container)
+    app = createApp({ render: () => h(LayoutDesigner, state as never) })
+    app.mount(container)
+    click(container, 'add-rect')
+    await nextTick()
+    state.modelValue = JSON.parse(JSON.stringify(state.modelValue))
+    await nextTick()
+    expect(designer!.canUndo).toBe(true)
+    expect(container.querySelectorAll('[data-type=rect]')).toHaveLength(1)
+  })
+})
+
 describe('Vue wrapper (A3)', () => {
   it('mounts the Designer and removes it on unmount', () => {
     const { container: c } = mount({})

@@ -1,1 +1,1 @@
-export default defineEventHandler((event) => sendPdf(event, () => generatorService.allInvoicesPdf()))
+export default defineEventHandler(() => sendPdf(() => generatorService.allInvoicesPdf()))

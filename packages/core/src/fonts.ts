@@ -15,6 +15,30 @@ export interface FontFamily {
 
 export type FontRegistry = FontFamily[]
 
+/** One font declaration for Designer and Generator: file names relative to a base that differs per side. */
+export interface FontDefinition {
+  readonly families: readonly FontFamily[]
+  /** The registry with every file resolved against `base`: a URL prefix in the browser (`/fonts`), a directory on the server. */
+  at(base: string): FontRegistry
+}
+
+/**
+ * Declares the Host App's fonts once, with file names:
+ * `defineFonts([{ family: 'Inter', files: { normal: 'Inter-Regular.ttf', bold: 'Inter-Bold.ttf' } }])`.
+ * Then `fonts.at('/fonts')` is what the Designer gets in the browser and `fonts.at(dir)` what `generate()` gets on the server.
+ */
+export function defineFonts(families: readonly FontFamily[]): FontDefinition {
+  const join = (base: string, file: string) => (/^([a-z][a-z0-9+.-]*:|\/)/i.test(file) ? file : `${base.replace(/[\\/]+$/, '')}/${file}`)
+  return {
+    families,
+    at: (base) =>
+      families.map((f) => ({
+        family: f.family,
+        files: Object.fromEntries(Object.entries(f.files).map(([style, file]) => [style, join(base, file as string)])) as unknown as FontFiles,
+      })),
+  }
+}
+
 export const FALLBACK_FONT = 'Roboto'
 
 /** Virtual file names under which the bundled Roboto is registered with pdfmake. */

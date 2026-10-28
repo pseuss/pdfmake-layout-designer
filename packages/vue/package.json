@@ -6,9 +6,29 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "require": "./dist/index.cjs" } },
-  "files": ["dist"],
-  "scripts": { "build": "vite build && tsc -p tsconfig.build.json" },
-  "dependencies": { "@pdf-layouter/core": "workspace:*", "@pdf-layouter/designer": "workspace:*" },
-  "peerDependencies": { "vue": ">=3.3" }
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./nuxt": {
+      "types": "./dist/nuxt.d.ts",
+      "import": "./dist/nuxt.js",
+      "require": "./dist/nuxt.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@pdf-layouter/core": "workspace:*",
+    "@pdf-layouter/designer": "workspace:*"
+  },
+  "peerDependencies": {
+    "vue": ">=3.3"
+  }
 }

@@ -81,6 +81,27 @@ describe('React wrapper (A3)', () => {
     expect(current!.static.map((e) => e.type)).toEqual(['text', 'rect', 'text']) // page number element, then the two added
   })
 
+  it('compares by content: a fresh copy of the emitted layout every render neither resets the Designer nor clears undo', () => {
+    let designer: Designer | undefined
+    let current: Layout | undefined
+    const props = () => ({ value: current && structuredClone(current), onChange: (l: Layout) => (current = l), onReady: (d: Designer) => (designer = d) })
+    render(props())
+    click('add-rect')
+    render(props()) // new object, same content
+    render(props())
+    expect(designer!.canUndo).toBe(true) // setLayout() would have cleared the history
+    expect(container.querySelectorAll('[data-type=rect]')).toHaveLength(1)
+  })
+
+  it('still applies a value whose content really differs', () => {
+    let designer: Designer | undefined
+    render({ value: { schemaVersion: 1 }, onReady: (d) => (designer = d) })
+    click('add-rect')
+    render({ value: { schemaVersion: 1, locale: 'it-IT' }, onReady: (d) => (designer = d) })
+    expect(designer!.getLayout().locale).toBe('it-IT')
+    expect(designer!.canUndo).toBe(false)
+  })
+
   it('forwards sample data and placeholder catalogs to the Designer', () => {
     let designer: Designer | undefined
     const layout = { schemaVersion: 1, static: [{ id: 't', type: 'text', x: 10, y: 10, w: 50, content: 'Hi {{name}}' }] } as const

@@ -3,3 +3,4 @@ export { collectWarnings, type DesignerWarning, type PlaceholderCatalog, type Pl
 export { DEFAULT_IMAGE_OPTIONS, fitWithin, processImage, type ImageOptions, type ProcessedImage } from './images'
 export type { Locale } from './i18n'
 export { normalizeHex, onPrimary, resolveTheme, type ResolvedTheme, type ThemeMode } from './theme'
+export { LayoutDocument, type DocumentStatus, type LayoutDocumentOptions, type LayoutDocumentState } from './document'
