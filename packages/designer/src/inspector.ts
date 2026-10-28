@@ -316,17 +316,17 @@ export class Inspector {
       this.fields.select(T('prop.align'), ALIGNS.map((a) => [a, T(`align.${a}` as const)] as const), e.align, (v) => this.editStatic<'text'>(id, (t) => void (t.align = v as El<'text'>['align'])), 'align'),
     ]
 
-    switch (el.type) {
-      case 'image': {
+    // one panel per Static Element type
+    const panels: { [K in StaticElement['type']]: (el: El<K>) => void } = {
+      image: (el) => {
         const asset = this.store.layout.assets[el.asset]
         this.propsEl.append(
           rule,
           ...pos(el, true),
           h('div', { class: 'pld-row' }, h('button', { type: 'button', class: 'pld-btn pld-btn-sm', 'data-testid': 'replace-image', onClick: () => this.d.pickImage(el.asset) }, T('prop.asset')), asset ? h('span', { class: 'pld-muted' }, `${asset.w ?? '?'}×${asset.h ?? '?'} px`) : null),
         )
-        break
-      }
-      case 'rect':
+      },
+      rect: (el) => {
         this.propsEl.append(
           rule,
           ...pos(el, true),
@@ -335,8 +335,8 @@ export class Inspector {
           this.fields.num(T('prop.strokeWidth'), el.stroke?.width ?? 0.5, (v) => this.editStatic<'rect'>(id, (t) => void (t.stroke = { color: t.stroke?.color ?? '#000000', width: v })), 'stroke-width', { min: 0, step: 0.25 }),
           this.fields.num(T('prop.radius'), el.radius, (v) => this.editStatic<'rect'>(id, (t) => void (t.radius = v)), 'radius', { min: 0 }),
         )
-        break
-      case 'line':
+      },
+      line: (el) => {
         this.propsEl.append(
           rule,
           this.fields.num(T('prop.x1'), el.x1, (v) => this.editStatic<'line'>(id, (t) => void (t.x1 = v)), 'x1'),
@@ -347,11 +347,11 @@ export class Inspector {
           this.fields.color(T('prop.color'), el.color, (v) => this.editStatic<'line'>(id, (t) => void (t.color = v ?? '#000000')), 'color'),
           this.fields.select(T('prop.dash'), (['solid', 'dashed', 'dotted'] as const).map((d) => [d, T(`dash.${d}` as const)] as const), el.dash, (v) => this.editStatic<'line'>(id, (t) => void (t.dash = v as El<'line'>['dash'])), 'dash'),
         )
-        break
-      case 'text':
+      },
+      text: (el) => {
         this.propsEl.append(rule, ...pos(el, false), this.textarea(T('prop.content'), el.content, (v) => this.editStatic<'text'>(id, (t) => void (t.content = v)), 'content'), ...textProps(el))
-        break
-      case 'address':
+      },
+      address: (el) => {
         this.propsEl.append(
           rule,
           this.fields.select(T('prop.preset'), [['DIN5008-A', 'DIN 5008 Form A'], ['DIN5008-B', 'DIN 5008 Form B']], el.preset, (v) => this.editStatic<'address'>(id, (t) => void (t.preset = v as El<'address'>['preset'])), 'preset'),
@@ -359,8 +359,9 @@ export class Inspector {
           this.fields.text(T('prop.returnAddress'), el.returnAddress ?? '', (v) => this.editStatic<'address'>(id, (t) => void (t.returnAddress = v || undefined)), 'return-address'),
           ...textProps(el),
         )
-        break
+      },
     }
+    ;(panels[el.type] as (el: StaticElement) => void)(el)
     this.propsEl.append(
       this.conditionFields(
         el.visibleWhen,
@@ -397,30 +398,26 @@ export class Inspector {
         )
       }
     }
-    switch (block.type) {
-      case 'text': {
+    // one panel per Flow Block type
+    const panels: { [K in FlowBlock['type']]: (block: Block<K>) => void } = {
+      text: (block) => {
         const editor = new RichTextEditor(block.content, T, (blocks) => this.editFlow<'text'>(index, (b) => void (b.content = blocks)))
         this.rich = editor
         this.propsEl.append(editor.element, createPicker(this.store.catalog, T, (token) => editor.insertText(token), 'flow-picker'))
-        break
-      }
-      case 'table':
-        this.renderTable(block, index)
-        break
-      case 'totals':
-        this.renderTotals(block, index)
-        break
-      case 'dynamicSections':
+      },
+      table: (block) => this.renderTable(block, index),
+      totals: (block) => this.renderTotals(block, index),
+      dynamicSections: (block) => {
         this.propsEl.append(
           this.fields.text(T('prop.source'), block.source, (v) => this.editFlow<'dynamicSections'>(index, (b) => void (b.source = v)), 'source'),
           this.fields.color(T('prop.headerFill'), block.styles.table.headerFill, (v) => this.editFlow<'dynamicSections'>(index, (b) => void (b.styles.table.headerFill = v)), 'header-fill', true),
           this.fields.check(T('prop.zebra'), block.styles.table.zebra, (v) => this.editFlow<'dynamicSections'>(index, (b) => void (b.styles.table.zebra = v)), 'zebra'),
           this.fields.num(T('prop.margin'), block.styles.text.margin[1], (v) => this.editFlow<'dynamicSections'>(index, (b) => void (b.styles.text.margin = [0, v, 0, v])), 'text-margin', { min: 0, step: 1 }),
         )
-        break
-      case 'pageBreak':
-        break
+      },
+      pageBreak: () => {},
     }
+    ;(panels[block.type] as (block: FlowBlock) => void)(block)
     this.propsEl.append(
       this.conditionFields(
         block.visibleWhen,

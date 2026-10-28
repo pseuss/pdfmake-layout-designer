@@ -245,8 +245,9 @@ export class Canvas {
       for (const part of parts) into.append(part.startsWith('{{') ? h('span', { class: 'pld-missing' }, part) : part)
     }
 
-    switch (el.type) {
-      case 'image': {
+    // one renderer per Static Element type
+    const renderers: { [K in StaticElement['type']]: (el: Extract<StaticElement, { type: K }>) => void } = {
+      image: (el) => {
         const asset = layout.assets[el.asset]
         this.placeRect(node, el)
         if (asset) {
@@ -254,9 +255,8 @@ export class Canvas {
           node.append(h('img', { src, alt: '', draggable: false }))
         }
         if (single) this.addHandles(node, HANDLES)
-        break
-      }
-      case 'rect': {
+      },
+      rect: (el) => {
         this.placeRect(node, el)
         Object.assign(node.style, {
           background: el.fill ?? 'transparent',
@@ -264,9 +264,8 @@ export class Canvas {
           borderRadius: this.px(el.radius),
         })
         if (single) this.addHandles(node, HANDLES)
-        break
-      }
-      case 'line': {
+      },
+      line: (el) => {
         this.layoutLine(node, { x: el.x1, y: el.y1 }, { x: el.x2, y: el.y2 }, el)
         if (single) {
           const at = (fromStart: boolean, startLow: boolean) => (fromStart === startLow ? '-6px' : 'calc(100% - 6px)')
@@ -274,16 +273,14 @@ export class Canvas {
           // p1 sits on the first endpoint, which is not always the top-left corner of the bounding box
           node.append(handle('p1', at(true, el.x1 <= el.x2), at(true, el.y1 <= el.y2)), handle('p2', at(false, el.x1 <= el.x2), at(false, el.y1 <= el.y2)))
         }
-        break
-      }
-      case 'text': {
+      },
+      text: (el) => {
         Object.assign(node.style, { left: this.px(el.x), top: this.px(el.y), width: this.px(el.w) })
         textStyle(el)
         renderText(el.content, node)
         if (single) this.addHandles(node, ['e', 'w'])
-        break
-      }
-      case 'address': {
+      },
+      address: (el) => {
         const g = ADDRESS_PRESETS[el.preset]
         this.placeRect(node, { x: g.x, y: g.y, w: g.w, h: g.h })
         const body = h('div', { style: { position: 'absolute', left: '0', right: '0', top: this.px(g.returnHeight), whiteSpace: 'pre-wrap' } })
@@ -295,9 +292,9 @@ export class Canvas {
         }
         renderText(el.content, body)
         node.append(body, h('span', { class: 'pld-tag' }, el.preset))
-        break
-      }
+      },
     }
+    ;(renderers[el.type] as (el: StaticElement) => void)(el)
 
     node.addEventListener('pointerdown', (e) => this.onElementPointerDown(e, el))
     return node

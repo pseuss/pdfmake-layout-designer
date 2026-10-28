@@ -73,44 +73,47 @@ function renderFlowCard(c: FlowContext, block: FlowBlock, index: number, sharedM
     const parts = previewText(text, c.sampleData, fmt).split(/(\{\{[^{}]*\}\})/)
     for (const part of parts) into.append(part.startsWith('{{') ? h('span', { class: 'pld-missing' }, part) : part)
   }
-  if (block.type === 'text') {
-    for (const rich of toBlocks(block.content)) {
-      const para = h('div', { class: 'pld-flowpara' })
-      if (rich.type === 'paragraph') {
-        para.style.textAlign = rich.align ?? 'left'
-        for (const run of rich.runs) {
-          const span = h('span', {})
-          Object.assign(span.style, {
-            fontWeight: run.bold ? '700' : '',
-            fontStyle: run.italic ? 'italic' : '',
-            textDecoration: run.underline ? 'underline' : '',
-            color: run.color ?? '',
-            fontSize: run.size ? pt(run.size) : '',
+  const bodies: { [K in FlowBlock['type']]?: (block: Extract<FlowBlock, { type: K }>) => void } = {
+    text: (block) => {
+      for (const rich of toBlocks(block.content)) {
+        const para = h('div', { class: 'pld-flowpara' })
+        if (rich.type === 'paragraph') {
+          para.style.textAlign = rich.align ?? 'left'
+          for (const run of rich.runs) {
+            const span = h('span', {})
+            Object.assign(span.style, {
+              fontWeight: run.bold ? '700' : '',
+              fontStyle: run.italic ? 'italic' : '',
+              textDecoration: run.underline ? 'underline' : '',
+              color: run.color ?? '',
+              fontSize: run.size ? pt(run.size) : '',
+            })
+            text(run.text, span)
+            para.append(span)
+          }
+        } else {
+          rich.items.forEach((runs, i) => {
+            const li = h('div', { class: 'pld-flowli' }, rich.ordered ? `${i + 1}.` : '•', ' ')
+            for (const run of runs) text(run.text, li)
+            para.append(li)
           })
-          text(run.text, span)
-          para.append(span)
         }
-      } else {
-        rich.items.forEach((runs, i) => {
-          const li = h('div', { class: 'pld-flowli' }, rich.ordered ? `${i + 1}.` : '•', ' ')
-          for (const run of runs) text(run.text, li)
-          para.append(li)
-        })
+        body.append(para)
       }
-      body.append(para)
-    }
-  } else if (block.type === 'table') {
-    body.append(tableMock(c, block, fmt, availMm))
-  } else if (block.type === 'totals') {
-    const table = h('div', { class: 'pld-flowtotals' })
-    block.rows.forEach((row, rowIndex) => {
-      const line = h('div', { class: `pld-flowtotals-row${row.bold ? ' is-bold' : ''}${totalsRowLine(row, rowIndex) ? ' has-line' : ''}` }, h('span', {}, ''), h('span', {}, ''))
-      text(row.label, line.children[0] as HTMLElement)
-      text(row.value, line.children[1] as HTMLElement)
-      table.append(line)
-    })
-    body.append(table)
+    },
+    table: (block) => body.append(tableMock(c, block, fmt, availMm)),
+    totals: (block) => {
+      const table = h('div', { class: 'pld-flowtotals' })
+      block.rows.forEach((row, rowIndex) => {
+        const line = h('div', { class: `pld-flowtotals-row${row.bold ? ' is-bold' : ''}${totalsRowLine(row, rowIndex) ? ' has-line' : ''}` }, h('span', {}, ''), h('span', {}, ''))
+        text(row.label, line.children[0] as HTMLElement)
+        text(row.value, line.children[1] as HTMLElement)
+        table.append(line)
+      })
+      body.append(table)
+    },
   }
+  ;(bodies[block.type] as ((block: FlowBlock) => void) | undefined)?.(block)
   if (body.childNodes.length) card.append(body)
   card.addEventListener('pointerdown', (e) => {
     e.stopPropagation()

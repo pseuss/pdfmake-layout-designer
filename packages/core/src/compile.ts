@@ -223,84 +223,94 @@ function buildTable({ columns, rows, style, source, availMm }: TableSpec, { ctx,
 
 const ROW_TYPES = new Set<FlowBlock['type']>(['text', 'table', 'totals'])
 
+/** What a Flow Block builder needs: the Record's data, formatting, and the width it may use. */
+interface FlowEnv extends RenderEnv {
+  data: Data
+  resolve: (s: string) => string
+  /** Width of the block's column or of the Content Box. */
+  availMm: number
+  /** `inRow` totals fill their column instead of aligning themselves. */
+  inRow: boolean
+}
+
+type FlowBuilders = { [K in FlowBlock['type']]: (block: Extract<FlowBlock, { type: K }>, env: FlowEnv) => Node[] }
+
+/** One builder per Flow Block type: how the block becomes pdfmake nodes. */
+const FLOW_BUILDERS: FlowBuilders = {
+  text: (block, { resolve }) => [{ stack: richNodes(block.content, resolve), margin: block.margin }],
+
+  table: (block, env) => {
+    const rows = lookup(env.data, block.source)
+    if (!Array.isArray(rows)) {
+      env.warn({ code: 'missing-list', message: `No list "${block.source}" in the data; table skipped` })
+      return []
+    }
+    return [buildTable({ columns: block.columns, rows: rows as Record<string, unknown>[], style: block.style, source: block.source, availMm: env.availMm }, env)]
+  },
+
+  totals: (block, { resolve, inRow }) => {
+    const lineAbove = block.rows.map((r, i) => totalsRowLine(r, i))
+    const table: Node = {
+      table: {
+        widths: ['*', 'auto'],
+        body: block.rows.map((r) => {
+          const style: Node = r.bold ? { bold: true } : {}
+          return [
+            { text: resolve(r.label), ...style },
+            { text: resolve(r.value), alignment: 'right', ...style },
+          ]
+        }),
+      },
+      layout: {
+        hLineWidth: (i: number) => (lineAbove[i] ? 0.75 : 0),
+        vLineWidth: () => 0,
+        hLineColor: () => '#444444',
+        paddingTop: () => 2,
+        paddingBottom: () => 2,
+        paddingLeft: () => 4,
+        paddingRight: () => 4,
+      },
+    }
+    if (inRow) return [{ ...table, margin: [0, 0, 0, 8] }]
+    const columns: Node[] = [{ width: block.width === '*' ? '*' : mmToPt(block.width), ...table }]
+    if (block.align === 'right') columns.unshift({ width: '*', text: '' })
+    return [{ columns, margin: [0, 0, 0, 8] }]
+  },
+
+  dynamicSections: (block, env) => {
+    const items = lookup(env.data, block.source)
+    if (!Array.isArray(items)) {
+      env.warn({ code: 'missing-list', message: `No section list "${block.source}" in the data; sections skipped` })
+      return []
+    }
+    const out: Node[] = []
+    items.forEach((raw, index) => {
+      const parsed = DynamicItemSchema.safeParse(raw)
+      if (!parsed.success) {
+        env.warn({ code: 'invalid-value', message: `Section ${index} of "${block.source}" is invalid: ${parsed.error.issues[0]?.message ?? 'unknown error'}` })
+        return
+      }
+      const item = parsed.data
+      if (item.type === 'text') {
+        out.push({ stack: richNodes(toBlocks(item.content as string | Run[] | RichBlock[]), env.resolve), margin: block.styles.text.margin })
+      } else {
+        const style = TableStyleSchema.parse({ ...block.styles.table, ...item.style })
+        out.push(buildTable({ columns: item.columns, rows: item.rows, style, source: `${block.source}[${index}]`, availMm: env.availMm }, env))
+      }
+    })
+    return out
+  },
+
+  pageBreak: () => [{ text: ' ', fontSize: 1, pageBreak: 'before' }],
+}
+
 function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: Warning) => void): Node[] {
   const contentMm = pageSizeMm(layout).w - layout.page.contentBox.first.left - layout.page.contentBox.first.right
   const resolve = (s: string) => resolvePlaceholders(s, data, ctx, warn)
 
-  /** Nodes of one block; `inRow` totals fill their column instead of aligning themselves. */
   const blockNodes = (block: FlowBlock, inRow: boolean, availMm: number): Node[] => {
-    const out: Node[] = []
-    switch (block.type) {
-      case 'text':
-        out.push({ stack: richNodes(block.content, resolve), margin: block.margin })
-        break
-      case 'table': {
-        const rows = lookup(data, block.source)
-        if (!Array.isArray(rows)) {
-          warn({ code: 'missing-list', message: `No list "${block.source}" in the data; table skipped` })
-          break
-        }
-        out.push(buildTable({ columns: block.columns, rows: rows as Record<string, unknown>[], style: block.style, source: block.source, availMm }, { ctx, warn }))
-        break
-      }
-      case 'totals': {
-        const lineAbove = block.rows.map((r, i) => totalsRowLine(r, i))
-        const table: Node = {
-          table: {
-            widths: ['*', 'auto'],
-            body: block.rows.map((r) => {
-              const style: Node = r.bold ? { bold: true } : {}
-              return [
-                { text: resolve(r.label), ...style },
-                { text: resolve(r.value), alignment: 'right', ...style },
-              ]
-            }),
-          },
-          layout: {
-            hLineWidth: (i: number) => (lineAbove[i] ? 0.75 : 0),
-            vLineWidth: () => 0,
-            hLineColor: () => '#444444',
-            paddingTop: () => 2,
-            paddingBottom: () => 2,
-            paddingLeft: () => 4,
-            paddingRight: () => 4,
-          },
-        }
-        if (inRow) {
-          out.push({ ...table, margin: [0, 0, 0, 8] })
-          break
-        }
-        const columns: Node[] = [{ width: block.width === '*' ? '*' : mmToPt(block.width), ...table }]
-        if (block.align === 'right') columns.unshift({ width: '*', text: '' })
-        out.push({ columns, margin: [0, 0, 0, 8] })
-        break
-      }
-      case 'dynamicSections': {
-        const items = lookup(data, block.source)
-        if (!Array.isArray(items)) {
-          warn({ code: 'missing-list', message: `No section list "${block.source}" in the data; sections skipped` })
-          break
-        }
-        items.forEach((raw, index) => {
-          const parsed = DynamicItemSchema.safeParse(raw)
-          if (!parsed.success) {
-            warn({ code: 'invalid-value', message: `Section ${index} of "${block.source}" is invalid: ${parsed.error.issues[0]?.message ?? 'unknown error'}` })
-            return
-          }
-          const item = parsed.data
-          if (item.type === 'text') {
-            out.push({ stack: richNodes(toBlocks(item.content as string | Run[] | RichBlock[]), resolve), margin: block.styles.text.margin })
-          } else {
-            const style = TableStyleSchema.parse({ ...block.styles.table, ...item.style })
-            out.push(buildTable({ columns: item.columns, rows: item.rows, style, source: `${block.source}[${index}]`, availMm }, { ctx, warn }))
-          }
-        })
-        break
-      }
-      case 'pageBreak':
-        out.push({ text: ' ', fontSize: 1, pageBreak: 'before' })
-        break
-    }
+    const build = FLOW_BUILDERS[block.type] as (block: FlowBlock, env: FlowEnv) => Node[]
+    const out = build(block, { ctx, warn, data, resolve, availMm, inRow })
     // a block font overrides the document font for everything the block produced
     if ('font' in block && block.font) for (const node of out) node.font = block.font
     return out
@@ -360,6 +370,65 @@ function textProps(el: { font?: string | undefined; size?: number | undefined; c
   return props
 }
 
+interface StaticEnv {
+  layout: Layout
+  /** Resolves placeholders of the page being built (`{{page}}` and `{{pages}}` included when counters are known). */
+  resolve: (s: string) => string
+}
+
+type StaticBuilders = { [K in StaticElement['type']]: (el: Extract<StaticElement, { type: K }>, env: StaticEnv) => Node }
+
+const at = (x: number, y: number): Node => ({ absolutePosition: { x: mmToPt(x), y: mmToPt(y) } })
+
+/** One builder per Static Element type: how the element becomes a positioned pdfmake node. */
+const STATIC_BUILDERS: StaticBuilders = {
+  image: (el, { layout }) => {
+    const asset = layout.assets[el.asset]!
+    const size = { width: mmToPt(el.w), height: mmToPt(el.h) }
+    return isSvgAsset(asset.data) ? { svg: asset.data, ...size, ...at(el.x, el.y) } : { image: `asset:${el.asset}`, ...size, ...at(el.x, el.y) }
+  },
+
+  rect: (el) => {
+    const shape: Node = { type: 'rect', x: 0, y: 0, w: mmToPt(el.w), h: mmToPt(el.h), r: mmToPt(el.radius) }
+    if (el.fill) shape.color = el.fill
+    if (el.stroke) {
+      shape.lineColor = el.stroke.color
+      shape.lineWidth = el.stroke.width
+    } else {
+      shape.lineWidth = 0
+    }
+    return { canvas: [shape], ...at(el.x, el.y) }
+  },
+
+  line: (el) => {
+    const dash = el.dash === 'dashed' ? { length: 4, space: 3 } : el.dash === 'dotted' ? { length: 1, space: 2 } : undefined
+    const shape: Node = {
+      type: 'line',
+      x1: 0,
+      y1: 0,
+      x2: mmToPt(el.x2 - el.x1),
+      y2: mmToPt(el.y2 - el.y1),
+      lineWidth: el.width,
+      lineColor: el.color,
+      lineCap: 'butt',
+    }
+    if (dash) shape.dash = dash
+    return { canvas: [shape], ...at(el.x1, el.y1) }
+  },
+
+  text: (el, { resolve }) => ({ columns: [{ width: mmToPt(el.w), text: resolve(el.content), ...textProps(el) }], ...at(el.x, el.y) }),
+
+  address: (el, { resolve }) => {
+    const g = ADDRESS_PRESETS[el.preset]
+    const stack: Node[] = []
+    if (el.returnAddress) {
+      stack.push({ text: resolve(el.returnAddress), fontSize: 7, color: '#555555', decoration: 'underline', margin: [0, mmToPt(g.returnHeight) - 14, 0, 0] })
+    }
+    stack.push({ text: resolve(el.content), ...textProps(el), margin: [0, el.returnAddress ? 4 : mmToPt(g.returnHeight), 0, 0] })
+    return { columns: [{ width: mmToPt(g.w), stack }], ...at(g.x, g.y) }
+  },
+}
+
 function staticNodes(layout: Layout, data: Data, ctx: FormatContext, warn: (w: Warning) => void): StaticNode[] {
   let counters: PageCounters | undefined
   const resolve = (s: string) => (counters ? resolvePagePlaceholders(s, data, ctx, counters, warn) : resolvePlaceholders(s, data, ctx, warn))
@@ -367,66 +436,8 @@ function staticNodes(layout: Layout, data: Data, ctx: FormatContext, warn: (w: W
   for (const el of layout.static as StaticElement[]) {
     if (!evaluateCondition(el.visibleWhen, data)) continue
     const build = (pc?: PageCounters): Node => {
-    counters = pc
-    let node: Node
-    switch (el.type) {
-      case 'image': {
-        const asset = layout.assets[el.asset]!
-        const common = { absolutePosition: { x: mmToPt(el.x), y: mmToPt(el.y) } }
-        node = isSvgAsset(asset.data)
-          ? { svg: asset.data, width: mmToPt(el.w), height: mmToPt(el.h), ...common }
-          : { image: `asset:${el.asset}`, width: mmToPt(el.w), height: mmToPt(el.h), ...common }
-        break
-      }
-      case 'rect': {
-        const shape: Node = { type: 'rect', x: 0, y: 0, w: mmToPt(el.w), h: mmToPt(el.h), r: mmToPt(el.radius) }
-        if (el.fill) shape.color = el.fill
-        if (el.stroke) {
-          shape.lineColor = el.stroke.color
-          shape.lineWidth = el.stroke.width
-        } else {
-          shape.lineWidth = 0
-        }
-        node = { canvas: [shape], absolutePosition: { x: mmToPt(el.x), y: mmToPt(el.y) } }
-        break
-      }
-      case 'line': {
-        const dash = el.dash === 'dashed' ? { length: 4, space: 3 } : el.dash === 'dotted' ? { length: 1, space: 2 } : undefined
-        const shape: Node = {
-          type: 'line',
-          x1: 0,
-          y1: 0,
-          x2: mmToPt(el.x2 - el.x1),
-          y2: mmToPt(el.y2 - el.y1),
-          lineWidth: el.width,
-          lineColor: el.color,
-          lineCap: 'butt',
-        }
-        if (dash) shape.dash = dash
-        node = { canvas: [shape], absolutePosition: { x: mmToPt(el.x1), y: mmToPt(el.y1) } }
-        break
-      }
-      case 'text':
-        node = {
-          columns: [{ width: mmToPt(el.w), text: resolve(el.content), ...textProps(el) }],
-          absolutePosition: { x: mmToPt(el.x), y: mmToPt(el.y) },
-        }
-        break
-      case 'address': {
-        const g = ADDRESS_PRESETS[el.preset]
-        const stack: Node[] = []
-        if (el.returnAddress) {
-          stack.push({ text: resolve(el.returnAddress), fontSize: 7, color: '#555555', decoration: 'underline', margin: [0, mmToPt(g.returnHeight) - 14, 0, 0] })
-        }
-        stack.push({ text: resolve(el.content), ...textProps(el), margin: [0, el.returnAddress ? 4 : mmToPt(g.returnHeight), 0, 0] })
-        node = {
-          columns: [{ width: mmToPt(g.w), stack }],
-          absolutePosition: { x: mmToPt(g.x), y: mmToPt(g.y) },
-        }
-        break
-      }
-    }
-    return node
+      counters = pc
+      return (STATIC_BUILDERS[el.type] as (el: StaticElement, env: StaticEnv) => Node)(el, { layout, resolve })
     }
     if ((el.type === 'text' || el.type === 'address') && (usesPageTokens(el.content) || usesPageTokens(el.type === 'address' ? el.returnAddress : undefined))) {
       build({ page: 1, pages: 1 }) // dry run: reports missing values once

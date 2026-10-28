@@ -34,25 +34,29 @@ export function columnFor(field: PlaceholderField | { key: string; label?: strin
   return { field: field.key, title: field.label ?? field.key, width: numeric ? 28 : '*', align: numeric ? 'right' : 'left', format: FORMAT_FOR[type] ?? 'text' }
 }
 
+const TABLE_STYLE = { zebra: false, zebraFill: '#F6F6F6', borders: 'horizontal', borderColor: '#CCCCCC', headerFill: '#EEEEEE' } as const
+
+type FlowDefaults = { [K in FlowBlock['type']]: (t: Translator, lists: PlaceholderList[]) => Extract<FlowBlock, { type: K }> }
+
+/** One factory per Flow Block type: what a freshly added block looks like. */
+const FLOW_DEFAULTS: FlowDefaults = {
+  text: () => ({ type: 'text', content: [{ type: 'paragraph', runs: [{ text: 'Text' }] }] }),
+  table: (t, lists) => {
+    const list = lists[0]
+    const columns = list?.fields.length ? list.fields.slice(0, 4).map(columnFor) : [{ field: 'beschreibung', title: t('default.description'), width: '*' as const, align: 'left' as const, format: 'text' }]
+    if (columns.length > 1 && columns.every((c) => c.width !== '*')) columns[0]!.width = '*'
+    return { type: 'table', source: list?.key ?? 'positionen', columns, style: { ...TABLE_STYLE } }
+  },
+  totals: (t) => ({
+    type: 'totals',
+    width: 80,
+    align: 'right',
+    rows: [{ label: t('default.net'), value: '', bold: false }, { label: t('default.vat'), value: '', bold: false }, { label: t('default.total'), value: '', bold: true }],
+  }),
+  dynamicSections: () => ({ type: 'dynamicSections', source: 'abschnitte', styles: { table: { ...TABLE_STYLE }, text: { margin: [0, 4, 0, 4] } } }),
+  pageBreak: () => ({ type: 'pageBreak' }),
+}
+
 export function newFlow(type: FlowBlock['type'], t: Translator, lists: PlaceholderList[] = []): FlowBlock {
-  switch (type) {
-    case 'text':
-      return { type: 'text', content: [{ type: 'paragraph', runs: [{ text: 'Text' }] }] }
-    case 'table': {
-      const list = lists[0]
-      const columns = list?.fields.length ? list.fields.slice(0, 4).map(columnFor) : [{ field: 'beschreibung', title: t('default.description'), width: '*' as const, align: 'left' as const, format: 'text' }]
-      if (columns.length > 1 && columns.every((c) => c.width !== '*')) columns[0]!.width = '*'
-      return { type: 'table', source: list?.key ?? 'positionen', columns, style: { zebra: false, zebraFill: '#F6F6F6', borders: 'horizontal', borderColor: '#CCCCCC', headerFill: '#EEEEEE' } }
-    }
-    case 'totals':
-      return { type: 'totals', width: 80, align: 'right', rows: [{ label: t('default.net'), value: '', bold: false }, { label: t('default.vat'), value: '', bold: false }, { label: t('default.total'), value: '', bold: true }] }
-    case 'dynamicSections':
-      return {
-        type: 'dynamicSections',
-        source: 'abschnitte',
-        styles: { table: { zebra: false, zebraFill: '#F6F6F6', borders: 'horizontal', borderColor: '#CCCCCC', headerFill: '#EEEEEE' }, text: { margin: [0, 4, 0, 4] } },
-      }
-    case 'pageBreak':
-      return { type: 'pageBreak' }
-  }
+  return (FLOW_DEFAULTS[type] as (t: Translator, lists: PlaceholderList[]) => FlowBlock)(t, lists)
 }
