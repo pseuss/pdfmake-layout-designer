@@ -1,0 +1,14 @@
+{
+  "name": "@pdf-layouter/react",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "require": "./dist/index.cjs" } },
+  "files": ["dist"],
+  "scripts": { "build": "vite build && tsc -p tsconfig.build.json" },
+  "dependencies": { "@pdf-layouter/core": "workspace:*", "@pdf-layouter/designer": "workspace:*" },
+  "peerDependencies": { "react": ">=18" }
+}

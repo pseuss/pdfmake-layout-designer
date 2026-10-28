@@ -1,0 +1,89 @@
+// @vitest-environment jsdom
+import { act, createElement, StrictMode } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import { renderToString } from 'react-dom/server'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Layout } from '@pdf-layouter/core'
+import { LayoutDesigner, type Designer } from '../src'
+
+;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+
+let container: HTMLElement
+let root: Root
+
+beforeEach(() => {
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+})
+afterEach(() => {
+  act(() => root.unmount())
+  container.remove()
+})
+
+const render = (props: Parameters<typeof LayoutDesigner>[0]) => act(() => root.render(createElement(LayoutDesigner, props)))
+const click = (testId: string) => act(() => container.querySelector<HTMLElement>(`[data-testid="${testId}"]`)!.click())
+
+describe('React wrapper (A3)', () => {
+  it('mounts the Designer into its element and removes it on unmount', () => {
+    render({})
+    expect(container.querySelectorAll('[data-testid=designer]')).toHaveLength(1)
+    act(() => root.unmount())
+    expect(document.querySelectorAll('[data-testid=designer]')).toHaveLength(0)
+    root = createRoot(container)
+  })
+
+  it('shows the given layout and emits the edited JSON through onChange (A4)', () => {
+    const onChange = vi.fn()
+    render({ value: { schemaVersion: 1, locale: 'en-US' }, onChange })
+    expect(onChange).not.toHaveBeenCalled()
+    click('add-rect')
+    expect(onChange).toHaveBeenCalledTimes(1)
+    const emitted = onChange.mock.calls[0]![0] as Layout
+    expect(emitted.locale).toBe('en-US')
+    expect(emitted.static.map((e) => e.type)).toEqual(['rect'])
+  })
+
+  it('applies a new value from the host without echoing it back through onChange', () => {
+    const onChange = vi.fn()
+    let designer: Designer | undefined
+    render({ value: { schemaVersion: 1 }, onChange, onReady: (d) => (designer = d) })
+    render({ value: { schemaVersion: 1, locale: 'fr-FR' }, onChange, onReady: (d) => (designer = d) })
+    expect(designer!.getLayout().locale).toBe('fr-FR')
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('does not reset the Designer when the host feeds the emitted layout back (controlled usage)', () => {
+    let current: Layout | undefined
+    const props = () => ({ value: current, onChange: (l: Layout) => (current = l) })
+    render(props())
+    click('add-rect')
+    render(props()) // re-render with the emitted layout as value
+    expect(container.querySelectorAll('[data-type=rect]')).toHaveLength(1)
+    click('add-text')
+    render(props())
+    expect(current!.static.map((e) => e.type)).toEqual(['rect', 'text'])
+  })
+
+  it('forwards sample data and placeholder catalogs to the Designer', () => {
+    let designer: Designer | undefined
+    const layout = { schemaVersion: 1, static: [{ id: 't', type: 'text', x: 10, y: 10, w: 50, content: 'Hi {{name}}' }] } as const
+    render({ value: layout as never, sampleData: { name: 'Anna' }, onReady: (d) => (designer = d) })
+    expect(container.querySelector('[data-id=t]')!.textContent).toBe('Hi Anna')
+    render({ value: layout as never, sampleData: { name: 'Berta' }, onReady: (d) => (designer = d) })
+    expect(container.querySelector('[data-id=t]')!.textContent).toBe('Hi Berta')
+    expect(designer!.getWarnings()).toEqual([])
+    render({ value: layout as never, sampleData: { name: 'Berta' }, placeholders: { groups: [{ key: 'kunde', label: 'Kunde', fields: [{ key: 'name', label: 'Name' }] }] } })
+    expect(designer!.getWarnings().map((w) => w.code)).toEqual(['unknown-placeholder'])
+  })
+
+  it('survives React StrictMode double mounting with exactly one Designer', () => {
+    act(() => root.render(createElement(StrictMode, null, createElement(LayoutDesigner, {}))))
+    expect(container.querySelectorAll('[data-testid=designer]')).toHaveLength(1)
+  })
+
+  it('renders on the server without touching the DOM (Next.js SSR)', () => {
+    const html = renderToString(createElement(LayoutDesigner, { className: 'x' }))
+    expect(html).toBe('<div class="x" style="height:100%"></div>')
+  })
+})

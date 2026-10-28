@@ -1,0 +1,1 @@
+{ "extends": "../../tsconfig.base.json", "compilerOptions": { "declaration": true, "emitDeclarationOnly": true, "outDir": "dist", "rootDir": "src", "paths": { "@pdf-layouter/core": ["../core/dist/index.d.ts"], "@pdf-layouter/designer": ["../designer/dist/index.d.ts"] } }, "include": ["src"] }
