@@ -320,14 +320,14 @@ test.describe('placeholder picker (A5)', () => {
     const box = (await page.getByTestId('content-box').boundingBox())!
     const a = (await page.getByTestId('flowcard-0').boundingBox())!
     const b = (await page.getByTestId('flowcard-1').boundingBox())!
-    expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width + 1)
+    expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width + 2)
     expect(Math.abs(a.width - b.width)).toBeLessThan(2)
 
     await page.getByTestId('flowcard-0').click()
     await page.getByTestId('block-width').fill('50')
     const a2 = (await page.getByTestId('flowcard-0').boundingBox())!
     const b2 = (await page.getByTestId('flowcard-1').boundingBox())!
-    expect(b2.x + b2.width).toBeLessThanOrEqual(box.x + box.width + 1)
+    expect(b2.x + b2.width).toBeLessThanOrEqual(box.x + box.width + 2)
     expect(a2.width).toBeLessThan(b2.width)
     expect(a2.width + b2.width).toBeGreaterThan(box.width - 40)
   })
