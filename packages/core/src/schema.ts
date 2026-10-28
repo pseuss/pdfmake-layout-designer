@@ -172,7 +172,15 @@ export const FlowTableSchema = z.object({
   columns: z.array(ColumnSchema).min(1),
   style: TableStyleSchema.default(() => TableStyleSchema.parse({})),
 })
-export const TotalsRowSchema = z.object({ label: z.string(), value: z.string(), bold: z.boolean().default(false) })
+export const TotalsRowSchema = z.object({
+  label: z.string(),
+  value: z.string(),
+  bold: z.boolean().default(false),
+  /** Rule above the row. Unset: a bold row (except the first) gets one, as before this option existed. */
+  line: z.boolean().optional(),
+})
+/** Whether the row at `index` has a rule above it. */
+export const totalsRowLine = (row: { bold: boolean; line?: boolean | undefined }, index: number): boolean => row.line ?? (row.bold && index > 0)
 export const FlowTotalsSchema = z.object({
   ...rowCommon,
   type: z.literal('totals'),

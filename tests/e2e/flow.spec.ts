@@ -331,4 +331,35 @@ test.describe('placeholder picker (A5)', () => {
     expect(a2.width).toBeLessThan(b2.width)
     expect(a2.width + b2.width).toBeGreaterThan(box.width - 40)
   })
+
+  test('totals: the rule above a row is an option of its own and survives deleting the total row', async ({ page }) => {
+    await open(page, 'layout=empty')
+    await page.getByTestId('add-totals').click()
+    await expect(page.getByTestId('row-2-line')).toBeChecked() // the bold total row has its rule by default
+    await expect(page.getByTestId('row-0-line')).not.toBeChecked()
+    await page.getByTestId('row-2-remove').click()
+    await page.getByTestId('row-1-line').check()
+    let rows = ((await layout(page)).flow[0] as any).rows
+    expect(rows[1].line).toBe(true)
+    await page.getByTestId('row-1-line').uncheck()
+    rows = ((await layout(page)).flow[0] as any).rows
+    expect(rows[1].line).toBe(false)
+    await page.getByTestId('row-0-line').check()
+    expect(((await layout(page)).flow[0] as any).rows[0].line).toBe(true)
+    await expect(page.getByTestId('flowcard-0').locator('.pld-flowtotals-row').first()).toHaveClass(/has-line/)
+  })
+
+  test('add buttons have icons and their labels stay inside the button', async ({ page }) => {
+    await page.setViewportSize({ width: 1300, height: 800 })
+    await open(page)
+    const ids = ['image', 'text', 'line', 'rect', 'address', 'pagenumber', 'flow-text', 'table', 'totals', 'dynamic', 'pagebreak']
+    for (const id of ids) {
+      const button = page.getByTestId(`add-${id}`)
+      await expect(button.locator('svg.pld-icon')).toHaveCount(1)
+      const b = (await button.boundingBox())!
+      const l = (await button.locator('.pld-addbtn-label').boundingBox())!
+      expect(l.x).toBeGreaterThanOrEqual(b.x - 0.5)
+      expect(l.x + l.width).toBeLessThanOrEqual(b.x + b.width + 0.5)
+    }
+  })
 })

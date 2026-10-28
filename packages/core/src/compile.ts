@@ -17,6 +17,7 @@ import {
   RunSchema,
   TableStyleSchema,
   toBlocks,
+  totalsRowLine,
   type Box,
   type Column,
   type FlowBlock,
@@ -223,7 +224,7 @@ function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: War
         break
       }
       case 'totals': {
-        const boldRows = block.rows.map((r) => r.bold)
+        const lineAbove = block.rows.map((r, i) => totalsRowLine(r, i))
         const table: Node = {
           table: {
             widths: ['*', 'auto'],
@@ -236,7 +237,7 @@ function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: War
             }),
           },
           layout: {
-            hLineWidth: (i: number) => (i > 0 && boldRows[i] ? 0.75 : 0),
+            hLineWidth: (i: number) => (lineAbove[i] ? 0.75 : 0),
             vLineWidth: () => 0,
             hLineColor: () => '#444444',
             paddingTop: () => 2,

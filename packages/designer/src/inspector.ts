@@ -1,4 +1,4 @@
-import { PAGE_SIZES_MM, type Column, type Condition, type FlowBlock, type LeafCondition, type StaticElement } from '@pdf-layouter/core'
+import { PAGE_SIZES_MM, totalsRowLine, type Column, type Condition, type FlowBlock, type LeafCondition, type StaticElement } from '@pdf-layouter/core'
 import type { FontRegistry } from '@pdf-layouter/core'
 import { alignSelection, deleteSelection, duplicateSelection, moveFlow, moveLayer } from './actions'
 import type { Align } from './geometry'
@@ -555,6 +555,7 @@ export class Inspector {
           this.text(T('prop.label'), r.label, (v) => this.editFlow<'totals'>(index, (b) => void (b.rows[i]!.label = v)), `row-${i}-label`),
           this.text(T('prop.value'), r.value, (v) => this.editFlow<'totals'>(index, (b) => void (b.rows[i]!.value = v)), `row-${i}-value`),
           this.check(T('prop.bold'), r.bold, (v) => this.editFlow<'totals'>(index, (b) => void (b.rows[i]!.bold = v)), `row-${i}-bold`),
+          this.check(T('prop.lineAbove'), totalsRowLine(r, i), (v) => this.editFlow<'totals'>(index, (b) => void (b.rows[i]!.line = v)), `row-${i}-line`),
           h('button', { type: 'button', class: 'pld-btn pld-btn-sm is-danger', 'data-testid': `row-${i}-remove`, disabled: block.rows.length === 1, onClick: () => structural((b) => void b.rows.splice(i, 1)) }, T('action.remove')),
         ),
       )

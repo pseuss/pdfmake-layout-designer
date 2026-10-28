@@ -553,3 +553,15 @@ describe('blocks side by side in the Content Box', () => {
     expect(leftMm(last.x)).toBeLessThan(210 - 20 - 5) // starts inside the box: page width minus right margin and some text width
   })
 })
+
+describe('totals rule', () => {
+  it('draws the rule only where `line` (or, unset, a bold row) asks for it', () => {
+    const rowsOf = (rows: unknown[]) => {
+      const layout = { schemaVersion: 1, flow: [{ type: 'totals', rows }] } as LayoutInput
+      const table = (compile(layout, [{}]).docDefinition.content as any[])[0].stack.find((n: any) => n.columns).columns.find((c: any) => c.table)
+      return rows.map((_, i) => table.layout.hLineWidth(i))
+    }
+    expect(rowsOf([{ label: 'a', value: '1' }, { label: 'b', value: '2', bold: true }])).toEqual([0, 0.75])
+    expect(rowsOf([{ label: 'a', value: '1', line: true }, { label: 'b', value: '2', bold: true, line: false }])).toEqual([0.75, 0])
+  })
+})

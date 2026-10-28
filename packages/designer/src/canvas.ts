@@ -1,4 +1,4 @@
-import { ADDRESS_PRESETS, applyFormatter, fitColumnWidths, isSvgAsset, lookup, ROW_GAP_MM, rowWidthsMm, pageRuleMatches, pageSizeMm, toBlocks, type FlowBlock, type Layout, type StaticElement } from '@pdf-layouter/core'
+import { ADDRESS_PRESETS, applyFormatter, fitColumnWidths, isSvgAsset, lookup, ROW_GAP_MM, rowWidthsMm, pageRuleMatches, pageSizeMm, toBlocks, totalsRowLine, type FlowBlock, type Layout, type StaticElement } from '@pdf-layouter/core'
 import { clear, h } from './dom'
 import { cssFontFamily } from './fonts'
 import { moveStatic, staticRect } from './actions'
@@ -418,12 +418,12 @@ export class Canvas {
       body.append(this.tableMock(layout, block, fmt, availMm))
     } else if (block.type === 'totals') {
       const table = h('div', { class: 'pld-flowtotals' })
-      for (const row of block.rows) {
-        const line = h('div', { class: `pld-flowtotals-row${row.bold ? ' is-bold' : ''}` }, h('span', {}, ''), h('span', {}, ''))
+      block.rows.forEach((row, rowIndex) => {
+        const line = h('div', { class: `pld-flowtotals-row${row.bold ? ' is-bold' : ''}${totalsRowLine(row, rowIndex) ? ' has-line' : ''}` }, h('span', {}, ''), h('span', {}, ''))
         text(row.label, line.children[0] as HTMLElement)
         text(row.value, line.children[1] as HTMLElement)
         table.append(line)
-      }
+      })
       body.append(table)
     }
     if (body.childNodes.length) card.append(body)

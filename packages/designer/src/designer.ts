@@ -5,6 +5,7 @@ import { clear, h, isEditable } from './dom'
 import { newAddress, newFlow, newImage, newLine, newRect, newText } from './elements'
 import { loadCanvasFonts } from './fonts'
 import { dataUrlKb, DEFAULT_IMAGE_OPTIONS, processImage, type ImageOptions } from './images'
+import { icon, type IconName } from './icons'
 import { createTranslator, type Locale, type MessageKey, type Translator } from './i18n'
 import { Inspector } from './inspector'
 import { Preview } from './preview'
@@ -262,24 +263,25 @@ export class Designer {
 
   private buildLeft(): HTMLElement {
     const T = this.t
-    const btn = (key: MessageKey, testId: string, run: () => void) => h('button', { type: 'button', class: 'pld-btn', 'data-testid': testId, onClick: run }, T(key))
+    const btn = (key: MessageKey, testId: string, run: () => void, name: IconName) =>
+      h('button', { type: 'button', class: 'pld-btn pld-addbtn', 'data-testid': testId, title: T(key), onClick: run }, icon(name), h('span', { class: 'pld-addbtn-label' }, T(key)))
     return h(
       'div',
       { class: 'pld-left', 'data-testid': 'sidebar' },
       h('div', null, h('div', { class: 'pld-section-title' }, `${T('add.title')} · ${T('static.title')}`), h('div', { class: 'pld-btn-grid' },
-        btn('add.image', 'add-image', () => this.pickImage()),
-        btn('add.text', 'add-text', () => this.addStatic(newText, 'text')),
-        btn('add.line', 'add-line', () => this.addStatic(newLine, 'line')),
-        btn('add.rect', 'add-rect', () => this.addStatic(newRect, 'rect')),
-        btn('add.address', 'add-address', () => this.addStatic(newAddress, 'address')),
-        btn('add.pagenumber', 'add-pagenumber', () => this.addStatic((id) => pageNumberElement(this.store.layout.page, id), 'pagenumber')),
+        btn('add.image', 'add-image', () => this.pickImage(), 'image'),
+        btn('add.text', 'add-text', () => this.addStatic(newText, 'text'), 'text'),
+        btn('add.line', 'add-line', () => this.addStatic(newLine, 'line'), 'line'),
+        btn('add.rect', 'add-rect', () => this.addStatic(newRect, 'rect'), 'rect'),
+        btn('add.address', 'add-address', () => this.addStatic(newAddress, 'address'), 'address'),
+        btn('add.pagenumber', 'add-pagenumber', () => this.addStatic((id) => pageNumberElement(this.store.layout.page, id), 'pagenumber'), 'pagenumber'),
       )),
       h('div', null, h('div', { class: 'pld-section-title' }, `${T('add.title')} · ${T('flow.title')}`), h('div', { class: 'pld-btn-grid' },
-        btn('add.flowText', 'add-flow-text', () => this.addFlow('text')),
-        btn('add.table', 'add-table', () => this.addFlow('table')),
-        btn('add.totals', 'add-totals', () => this.addFlow('totals')),
-        btn('add.dynamicSections', 'add-dynamic', () => this.addFlow('dynamicSections')),
-        btn('add.pageBreak', 'add-pagebreak', () => this.addFlow('pageBreak')),
+        btn('add.flowText', 'add-flow-text', () => this.addFlow('text'), 'flowText'),
+        btn('add.table', 'add-table', () => this.addFlow('table'), 'table'),
+        btn('add.totals', 'add-totals', () => this.addFlow('totals'), 'totals'),
+        btn('add.dynamicSections', 'add-dynamic', () => this.addFlow('dynamicSections'), 'dynamic'),
+        btn('add.pageBreak', 'add-pagebreak', () => this.addFlow('pageBreak'), 'pageBreak'),
       )),
       h('div', null, h('div', { class: 'pld-section-title' }, T('flow.title')), this.flowList),
       h('div', null, h('div', { class: 'pld-section-title' }, T('static.title')), this.staticList),
