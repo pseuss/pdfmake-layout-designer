@@ -7,6 +7,8 @@ Works in React, Next, Vue, Nuxt, or plain TypeScript.
 
 > **Not affiliated with pdfmake.** This is an independent open-source project that uses the excellent [pdfmake](https://pdfmake.github.io/docs/) library to render PDFs. "pdfmake" is named only to say what the project builds on.
 
+![The visual designer editing an invoice layout](https://raw.githubusercontent.com/pseuss/pdfmake-layout-designer/main/assets/designer.png)
+
 ```bash
 npm install pdfmake-layout-designer-core    # generate PDFs (Node and browser)
 npm install pdfmake-layout-designer         # visual editor, plain TypeScript
