@@ -1,4 +1,4 @@
-import { ADDRESS_PRESETS, applyFormatter, isSvgAsset, pageRuleMatches, pageSizeMm, type FlowBlock, type Layout, type StaticElement } from '@pdf-layouter/core'
+import { ADDRESS_PRESETS, applyFormatter, isSvgAsset, pageRuleMatches, pageSizeMm, type FlowBlock, type Layout, type StaticElement } from 'pdfmake-layout-designer-core'
 import { clear, h } from './dom'
 import { cssFontFamily } from './fonts'
 import { moveStatic, staticRect } from './actions'

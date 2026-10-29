@@ -1,4 +1,4 @@
-import { generate, type FontRegistry } from '@pdf-layouter/core'
+import { generate, type FontRegistry } from 'pdfmake-layout-designer-core'
 import { clear, h } from './dom'
 import type { Translator } from './i18n'
 import type { Store } from './store'

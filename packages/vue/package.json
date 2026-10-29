@@ -1,6 +1,22 @@
 {
-  "name": "@pdf-layouter/vue",
+  "name": "pdfmake-layout-designer-vue",
   "version": "0.1.0",
+  "description": "Vue 3 / Nuxt component and helpers for the pdfmake-layout-designer visual layout designer.",
+  "keywords": [
+    "vue",
+    "nuxt",
+    "pdf",
+    "layout-designer"
+  ],
+  "homepage": "https://github.com/pseuss/pdfmake-layout-designer#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pseuss/pdfmake-layout-designer.git",
+    "directory": "packages/vue"
+  },
+  "bugs": {
+    "url": "https://github.com/pseuss/pdfmake-layout-designer/issues"
+  },
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -19,16 +35,22 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "vite build && tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@pdf-layouter/core": "workspace:*",
-    "@pdf-layouter/designer": "workspace:*"
+    "pdfmake-layout-designer-core": "workspace:*",
+    "pdfmake-layout-designer": "workspace:*"
   },
   "peerDependencies": {
     "vue": ">=3.3"
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
   }
 }

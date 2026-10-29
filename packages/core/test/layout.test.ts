@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ADDRESS_PRESETS, createDefaultLayout, pageNumberElement, createEmptyLayout, LayoutError, migrateLayout, parseLayout, pruneAssets, toBlocks } from '@pdf-layouter/core'
+import { ADDRESS_PRESETS, createDefaultLayout, pageNumberElement, createEmptyLayout, LayoutError, migrateLayout, parseLayout, pruneAssets, toBlocks } from 'pdfmake-layout-designer-core'
 
 describe('parseLayout', () => {
   it('fills defaults for a minimal layout', () => {
@@ -115,7 +115,7 @@ describe('guides', () => {
     expect(layout.guides).toEqual({ x: [30, 63.5], y: [100] })
     expect(parseLayout({ schemaVersion: 1, guides: { x: [] } }).guides).toEqual({ x: [], y: [] })
     expect(() => parseLayout({ schemaVersion: 1, guides: { x: ['a'] } })).toThrow(/Invalid layout/)
-    const { generate } = await import('@pdf-layouter/core')
+    const { generate } = await import('pdfmake-layout-designer-core')
     expect((await generate(layout, {})).length).toBe((await generate({ schemaVersion: 1 }, {})).length)
   })
 })

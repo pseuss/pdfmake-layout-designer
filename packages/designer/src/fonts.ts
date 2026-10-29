@@ -1,4 +1,4 @@
-import { FALLBACK_FONT, loadRobotoData, type FontRegistry } from '@pdf-layouter/core'
+import { FALLBACK_FONT, loadRobotoData, type FontRegistry } from 'pdfmake-layout-designer-core'
 
 const STYLES = [
   ['normal', { weight: '400', style: 'normal' }],
@@ -17,7 +17,7 @@ function register(doc: Document, family: string, source: string, descriptors: { 
       fonts.add(loaded)
     })
     .catch((error: unknown) => {
-      console.warn(`[pdf-layouter] Could not load font "${family}" (${source.slice(0, 80)}):`, error)
+      console.warn(`[pdfmake-layout-designer] Could not load font "${family}" (${source.slice(0, 80)}):`, error)
     })
 }
 

@@ -6,8 +6,8 @@ const src = (p: string) => fileURLToPath(new URL(p, import.meta.url))
 export default defineConfig({
   resolve: {
     alias: {
-      '@pdf-layouter/core': src('./packages/core/src/index.ts'),
-      '@pdf-layouter/designer': src('./packages/designer/src/index.ts'),
+      'pdfmake-layout-designer-core': src('./packages/core/src/index.ts'),
+      'pdfmake-layout-designer': src('./packages/designer/src/index.ts'),
     },
   },
   test: {

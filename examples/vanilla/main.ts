@@ -1,5 +1,5 @@
-import * as core from '@pdf-layouter/core'
-import { Designer } from '@pdf-layouter/designer'
+import * as core from 'pdfmake-layout-designer-core'
+import { Designer } from 'pdfmake-layout-designer'
 import { browserFontRegistry, invoiceData, invoiceLayout, placeholderCatalog, serialLayout, serialRecords } from '../../fixtures/data'
 
 async function toDataUrl(url: string): Promise<string> {

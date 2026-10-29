@@ -7,8 +7,8 @@ export default defineConfig({
   publicDir: src('../../fixtures'),
   resolve: {
     alias: {
-      '@pdf-layouter/core': src('../../packages/core/src/index.ts'),
-      '@pdf-layouter/designer': src('../../packages/designer/src/index.ts'),
+      'pdfmake-layout-designer-core': src('../../packages/core/src/index.ts'),
+      'pdfmake-layout-designer': src('../../packages/designer/src/index.ts'),
     },
   },
   server: { host: true, fs: { allow: [src('../..')] }, port: 5199, strictPort: true },

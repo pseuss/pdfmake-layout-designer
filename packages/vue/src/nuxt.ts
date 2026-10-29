@@ -10,11 +10,11 @@ interface NuxtLike {
 }
 
 /**
- * Nuxt module: `modules: ['@pdf-layouter/vue/nuxt']` in `nuxt.config.ts`.
+ * Nuxt module: `modules: ['pdfmake-layout-designer-vue/nuxt']` in `nuxt.config.ts`.
  * It keeps pdfmake and pdf-lib out of the Nitro bundle (so `generate()` works in server routes),
  * pre-bundles pdfmake for the browser preview in dev, and auto-imports `<LayoutDesigner>`.
  */
-export default function pdfLayouterModule(_options: unknown, nuxt: NuxtLike): void {
+export default function pdfmakeLayoutDesignerModule(_options: unknown, nuxt: NuxtLike): void {
   const nitro = (nuxt.options.nitro ??= {})
   const externals = (nitro.externals ??= {})
   externals.external = [...new Set([...(externals.external ?? []), ...SERVER_EXTERNAL])]
@@ -28,8 +28,8 @@ export default function pdfLayouterModule(_options: unknown, nuxt: NuxtLike): vo
       pascalName: 'LayoutDesigner',
       kebabName: 'layout-designer',
       export: 'LayoutDesigner',
-      filePath: '@pdf-layouter/vue',
-      shortPath: '@pdf-layouter/vue',
+      filePath: 'pdfmake-layout-designer-vue',
+      shortPath: 'pdfmake-layout-designer-vue',
       chunkName: 'components/layout-designer',
       prefetch: false,
       preload: false,
@@ -40,4 +40,4 @@ export default function pdfLayouterModule(_options: unknown, nuxt: NuxtLike): vo
   })
 }
 
-export const meta = { name: 'pdf-layouter', configKey: 'pdfLayouter' }
+export const meta = { name: 'pdfmake-layout-designer', configKey: 'pdfmakeLayoutDesigner' }

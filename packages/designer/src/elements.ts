@@ -1,4 +1,4 @@
-import type { Column, FlowBlock, StaticElement } from '@pdf-layouter/core'
+import type { Column, FlowBlock, StaticElement } from 'pdfmake-layout-designer-core'
 import type { Translator } from './i18n'
 import type { PlaceholderField, PlaceholderList } from './warnings'
 

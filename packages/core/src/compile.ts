@@ -23,6 +23,7 @@ import {
   type FlowBlock,
   type Layout,
   type LayoutInput,
+  type Margin,
   type PageRule,
   type RichBlock,
   type Run,
@@ -83,7 +84,7 @@ export function collectFonts(layout: Layout): string[] {
 
 /**
  * pdfmake has one set of page margins per document. The Content Box is therefore mapped to the
- * margins of the follow-up pages plus a spacer on the first page of every record (see ADR 0001).
+ * margins of the follow-up pages plus a spacer on the first page of every record.
  */
 function computeMargins(first: Box, follow: Box, warn: (w: Warning) => void) {
   if (first.left !== follow.left || first.right !== follow.right) {
@@ -175,6 +176,22 @@ export function rowWidthsMm(blocks: FlowBlock[], availMm: number): number[] {
   return fixed.map((w) => (w === undefined ? share : w * scale))
 }
 
+type Sides = [number, number, number, number]
+const NO_MARGIN: Margin = { top: 0, right: 0, bottom: 0, left: 0 }
+/** The block's margin in mm; blocks without one (or of a type that has none) get zeros. */
+const marginOf = (block: FlowBlock): Margin => ('margin' in block && block.margin) || NO_MARGIN
+const marginPt = (m: Margin): Sides => [mmToPt(m.left), mmToPt(m.top), mmToPt(m.right), mmToPt(m.bottom)]
+
+/** Adds the block's margin to what the builder produced: left/right to every node, top to the first and bottom to the last. */
+function addMargin(nodes: Node[], m: Margin): void {
+  if (m === NO_MARGIN) return
+  const [l, t, r, b] = marginPt(m)
+  nodes.forEach((node, i) => {
+    const own: Sides = Array.isArray(node.margin) ? (node.margin as Sides) : [0, 0, 0, 0]
+    node.margin = [own[0] + l, own[1] + (i === 0 ? t : 0), own[2] + r, own[3] + (i === nodes.length - 1 ? b : 0)]
+  })
+}
+
 /** Formatting and warning context shared by everything that renders a Record. */
 interface RenderEnv {
   ctx: FormatContext
@@ -237,7 +254,7 @@ type FlowBuilders = { [K in FlowBlock['type']]: (block: Extract<FlowBlock, { typ
 
 /** One builder per Flow Block type: how the block becomes pdfmake nodes. */
 const FLOW_BUILDERS: FlowBuilders = {
-  text: (block, { resolve }) => [{ stack: richNodes(block.content, resolve), margin: block.margin }],
+  text: (block, { resolve }) => [{ stack: richNodes(block.content, resolve) }],
 
   table: (block, env) => {
     const rows = lookup(env.data, block.source)
@@ -308,11 +325,15 @@ function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: War
   const contentMm = pageSizeMm(layout).w - layout.page.contentBox.first.left - layout.page.contentBox.first.right
   const resolve = (s: string) => resolvePlaceholders(s, data, ctx, warn)
 
-  const blockNodes = (block: FlowBlock, inRow: boolean, availMm: number): Node[] => {
+  /** `outerMm` is the width including the block's margin; a block in a row gets its margin on the column instead. */
+  const blockNodes = (block: FlowBlock, inRow: boolean, outerMm: number): Node[] => {
     const build = FLOW_BUILDERS[block.type] as (block: FlowBlock, env: FlowEnv) => Node[]
+    const margin = marginOf(block)
+    const availMm = Math.max(0, outerMm - margin.left - margin.right)
     const out = build(block, { ctx, warn, data, resolve, availMm, inRow })
     // a block font overrides the document font for everything the block produced
     if ('font' in block && block.font) for (const node of out) node.font = block.font
+    if (!inRow) addMargin(out, margin)
     return out
   }
 
@@ -333,7 +354,7 @@ function buildFlow(layout: Layout, data: Data, ctx: FormatContext, warn: (w: War
     }
     const widths = rowWidthsMm(row, contentMm)
     out.push({
-      columns: row.map((block, i) => ({ width: mmToPt(widths[i]!), stack: blockNodes(block, true, widths[i]!) })),
+      columns: row.map((block, i) => ({ width: mmToPt(widths[i]!), stack: blockNodes(block, true, widths[i]!), margin: marginPt(marginOf(block)) })),
       columnGap: mmToPt(ROW_GAP_MM),
     })
   }

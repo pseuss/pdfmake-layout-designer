@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defineFonts, generate, pdfResponse } from '@pdf-layouter/core'
+import { defineFonts, generate, pdfResponse } from 'pdfmake-layout-designer-core'
 import { nodeFontRegistry } from '../../../fixtures/node'
 
 describe('defineFonts: one declaration, a registry per side', () => {

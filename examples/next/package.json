@@ -9,8 +9,8 @@
     "start": "next start -H 0.0.0.0 -p 5301"
   },
   "dependencies": {
-    "@pdf-layouter/core": "workspace:*",
-    "@pdf-layouter/react": "workspace:*",
+    "pdfmake-layout-designer-core": "workspace:*",
+    "pdfmake-layout-designer-react": "workspace:*",
     "next": "^16.4.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

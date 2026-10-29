@@ -1,1 +1,1 @@
-{ "extends": "../../tsconfig.base.json", "compilerOptions": { "declaration": true, "emitDeclarationOnly": true, "outDir": "dist", "rootDir": "src", "paths": { "@pdf-layouter/core": ["../core/dist/index.d.ts"] } }, "include": ["src"] }
+{ "extends": "../../tsconfig.base.json", "compilerOptions": { "declaration": true, "emitDeclarationOnly": true, "outDir": "dist", "rootDir": "src", "paths": { "pdfmake-layout-designer-core": ["../core/dist/index.d.ts"] } }, "include": ["src"] }

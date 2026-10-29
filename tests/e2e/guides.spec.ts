@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { generate } from '@pdf-layouter/core'
+import { generate } from 'pdfmake-layout-designer-core'
 import { dragBy, layout, open, scale } from './helpers'
 
 const geometry = async (page: Page) => {

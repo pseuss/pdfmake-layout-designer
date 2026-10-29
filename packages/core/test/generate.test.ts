@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compile, generate, generateBatch, mmToPt, RecordOverflowError, type LayoutInput, type Warning } from '@pdf-layouter/core'
+import { compile, parseLayout, generate, generateBatch, mmToPt, RecordOverflowError, type LayoutInput, type Warning } from 'pdfmake-layout-designer-core'
 import { invoiceData, invoiceLayout, serialLayout, serialRecords } from '../../../fixtures/data'
 import { loadAssets, nodeFontRegistry } from '../../../fixtures/node'
 import { readPdf } from './pdf'
@@ -516,6 +516,30 @@ describe('blocks side by side in the Content Box', () => {
     expect(below.y).toBeLessThan(left.y - 5)
   })
 
+  it('keeps the margin distance above, below and to the left of a block', async () => {
+    const layout = rowLayout([text('OBEN'), text('MITTE', { margin: { top: 20, bottom: 30, left: 10 } }), text('UNTEN')])
+    const items = (await readPdf(await generate(layout, {}, { fonts }))).pages[0]!.items
+    const [a, b, c] = ['OBEN', 'MITTE', 'UNTEN'].map((s) => items.find((i) => i.str === s)!)
+    const plain = rowLayout([text('OBEN'), text('MITTE'), text('UNTEN')])
+    const base = (await readPdf(await generate(plain, {}, { fonts }))).pages[0]!.items
+    const [a0, b0, c0] = ['OBEN', 'MITTE', 'UNTEN'].map((s) => base.find((i) => i.str === s)!)
+    const mm = (pt: number) => (pt / 72) * 25.4
+    expect(mm(a0!.y - a!.y)).toBeCloseTo(0, 0)
+    expect(mm(b0!.y - b!.y)).toBeCloseTo(20, 0)
+    expect(mm(c0!.y - c!.y)).toBeCloseTo(50, 0)
+    expect(leftMm(b!.x) - leftMm(b0!.x)).toBeCloseTo(10, 0)
+  })
+
+  it('applies margins to blocks in a row and keeps their outer width', async () => {
+    const layout = rowLayout([text('LINKS', { width: 60, margin: { right: 15 } }), text('RECHTS', { sameRow: true, margin: { left: 5 } })])
+    const items = (await readPdf(await generate(layout, {}, { fonts }))).pages[0]!.items
+    expect(leftMm(items.find((i) => i.str === 'RECHTS')!.x)).toBeCloseTo(25 + 60 + 4 + 5, 0)
+  })
+
+  it('rejects negative margins', () => {
+    expect(() => parseLayout({ schemaVersion: 1, flow: [{ type: 'text', content: 'x', margin: { top: -1 } }] })).toThrow()
+  })
+
   it('puts a text, a table and totals in one row', async () => {
     const layout = rowLayout([
       text('INFO', { width: 40 }),
@@ -569,9 +593,9 @@ describe('totals rule', () => {
 describe('rendering state', () => {
   it('removes attachments from pdfmake after each render', async () => {
     const pdfmake = (await import('pdfmake')).default
-    const before = Object.keys(pdfmake.virtualfs.storage).filter((k) => k.startsWith('pdf-layouter-attachment')).length
+    const before = Object.keys(pdfmake.virtualfs.storage).filter((k) => k.startsWith('pdfmake-layout-designer-attachment')).length
     await generate({ schemaVersion: 1 }, {}, { fonts, attachments: [{ filename: 'a.xml', data: '<a/>' }] })
-    const after = Object.keys(pdfmake.virtualfs.storage).filter((k) => k.startsWith('pdf-layouter-attachment')).length
+    const after = Object.keys(pdfmake.virtualfs.storage).filter((k) => k.startsWith('pdfmake-layout-designer-attachment')).length
     expect(after).toBe(before)
   })
 

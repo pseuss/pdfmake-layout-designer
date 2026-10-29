@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { generate } from '@pdf-layouter/core'
+import { generate } from 'pdfmake-layout-designer-core'
 import { nodeFontRegistry } from '../../fixtures/node'
 import { readPdf } from '../../packages/core/test/pdf'
 import { layout, open } from './helpers'

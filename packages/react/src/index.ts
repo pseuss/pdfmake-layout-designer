@@ -1,6 +1,6 @@
 import { createElement, useEffect, useMemo, useRef, useSyncExternalStore, type CSSProperties, type ReactElement } from 'react'
-import type { Data, Layout, LayoutInput } from '@pdf-layouter/core'
-import { Designer, LayoutDocument, pickDesignerOptions, type DesignerOptions, type DocumentStatus, type LayoutDocumentOptions, type PlaceholderCatalog } from '@pdf-layouter/designer'
+import type { Data, Layout, LayoutInput } from 'pdfmake-layout-designer-core'
+import { Designer, LayoutDocument, pickDesignerOptions, type DesignerOptions, type DocumentStatus, type LayoutDocumentOptions, type PlaceholderCatalog } from 'pdfmake-layout-designer'
 
 export interface LayoutDesignerProps extends Omit<DesignerOptions, 'container' | 'layout' | 'onChange' | 'placeholders' | 'sampleData'> {
   /** The stored Layout JSON. A new object with the same content is ignored, so it is fine to pass a fresh one every render. */

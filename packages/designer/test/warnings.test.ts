@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseLayout } from '@pdf-layouter/core'
+import { parseLayout } from 'pdfmake-layout-designer-core'
 import { collectWarnings, previewText, type PlaceholderCatalog } from '../src/warnings'
 
 const catalog: PlaceholderCatalog = {

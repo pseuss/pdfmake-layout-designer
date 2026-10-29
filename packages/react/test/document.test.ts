@@ -2,7 +2,7 @@
 import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { describe, expect, it, vi } from 'vitest'
-import type { Layout } from '@pdf-layouter/core'
+import type { Layout } from 'pdfmake-layout-designer-core'
 import { useLayoutDocument, type UseLayoutDocument } from '../src'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true

@@ -1,4 +1,4 @@
-import type { Layout, LayoutInput } from '@pdf-layouter/core'
+import type { Layout, LayoutInput } from 'pdfmake-layout-designer-core'
 
 export type DocumentStatus = 'loading' | 'new' | 'loaded' | 'dirty' | 'saving' | 'saved' | 'error'
 

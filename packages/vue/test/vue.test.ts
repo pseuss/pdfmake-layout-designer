@@ -2,7 +2,7 @@
 import { createApp, h, nextTick, reactive, type App } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Layout } from '@pdf-layouter/core'
+import type { Layout } from 'pdfmake-layout-designer-core'
 import { LayoutDesigner, type Designer } from '../src'
 
 let app: App | undefined

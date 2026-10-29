@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { nextTick } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
-import type { Layout } from '@pdf-layouter/core'
+import type { Layout } from 'pdfmake-layout-designer-core'
 import { useLayoutDocument } from '../src'
 
 describe('useLayoutDocument (Vue)', () => {

@@ -29,7 +29,7 @@ console.log('designer, react, vue: importable without a DOM (SSR safe)')
 import { readFileSync } from 'node:fs'
 assert.match(readFileSync(new URL('../../packages/react/dist/index.js', import.meta.url), 'utf8'), /^"use client";/)
 assert.equal(typeof react.useLayoutDocument, 'function')
-assert.deepEqual((await import('../../packages/react/dist/next.js')).withPdfLayouter().serverExternalPackages, ['pdfmake', 'pdf-lib'])
+assert.deepEqual((await import('../../packages/react/dist/next.js')).withLayoutDesigner().serverExternalPackages, ['pdfmake', 'pdf-lib'])
 assert.equal(typeof (await import('../../packages/vue/dist/nuxt.js')).default, 'function')
 assert.equal(typeof vue.useLayoutDocument, 'function')
 const core = await import('../../packages/core/dist/index.js')

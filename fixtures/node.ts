@@ -1,7 +1,7 @@
 // Node-only fixture helpers: reads the generated assets and the downloaded Google Fonts from disk.
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import type { FontRegistry } from '@pdf-layouter/core'
+import type { FontRegistry } from 'pdfmake-layout-designer-core'
 import type { FixtureAssets } from './data'
 
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url))

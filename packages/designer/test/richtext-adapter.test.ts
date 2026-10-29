@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { RichBlock } from '@pdf-layouter/core'
+import type { RichBlock } from 'pdfmake-layout-designer-core'
 import { blocksToDoc, docToBlocks, fontSizeToPt } from '../src/richtext-adapter'
 
 describe('rich text adapter', () => {

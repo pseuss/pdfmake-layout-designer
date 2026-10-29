@@ -1,6 +1,6 @@
 // The Host App's side of the generator example, shared by the Node, Next and Nuxt demos:
 // reads rows from a JSON "database", loads the stored Layouts, fills them and returns PDF bytes.
-// `generate` / `generateBatch` come from @pdf-layouter/core and are passed in, so this file has no dependencies.
+// `generate` / `generateBatch` come from pdfmake-layout-designer-core and are passed in, so this file has no dependencies.
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { invoiceRecord, letterRecord } from './records.mjs'

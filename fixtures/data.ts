@@ -1,5 +1,5 @@
 // Pure test data builders (no Node APIs), shared by unit tests, e2e tests and the demo page.
-import type { Data, LayoutInput } from '@pdf-layouter/core'
+import type { Data, LayoutInput } from 'pdfmake-layout-designer-core'
 
 export interface FixtureAssets {
   background: string // data URL (JPEG)

@@ -1,4 +1,4 @@
-import type { RichBlock, Run } from '@pdf-layouter/core'
+import type { RichBlock, Run } from 'pdfmake-layout-designer-core'
 
 // Minimal structural types for the parts of the ProseMirror JSON the editor produces.
 export interface PmMark {

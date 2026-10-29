@@ -1,6 +1,6 @@
-import type { FlowBlock, StaticElement } from '@pdf-layouter/core'
+import type { FlowBlock, StaticElement } from 'pdfmake-layout-designer-core'
 import { alignDeltas, round, type Align, type Rect } from './geometry'
-import { ADDRESS_PRESETS } from '@pdf-layouter/core'
+import { ADDRESS_PRESETS } from 'pdfmake-layout-designer-core'
 import type { Store } from './store'
 
 

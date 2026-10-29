@@ -1,6 +1,25 @@
 {
-  "name": "@pdf-layouter/core",
+  "name": "pdfmake-layout-designer-core",
   "version": "0.1.0",
+  "description": "Layout JSON to PDF: schema, placeholders and a pdfmake-based PDF generator for invoices, quotes and form letters. Runs in Node and the browser.",
+  "keywords": [
+    "pdf",
+    "pdfmake",
+    "layout",
+    "invoice",
+    "form-letter",
+    "din-5008",
+    "pdf-generator"
+  ],
+  "homepage": "https://github.com/pseuss/pdfmake-layout-designer#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pseuss/pdfmake-layout-designer.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/pseuss/pdfmake-layout-designer/issues"
+  },
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -14,7 +33,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "vite build && tsc -p tsconfig.build.json"
@@ -30,5 +51,9 @@
     "pdf-lib": {
       "optional": true
     }
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
   }
 }

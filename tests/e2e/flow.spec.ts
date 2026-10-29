@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { generate } from '@pdf-layouter/core'
+import { generate } from 'pdfmake-layout-designer-core'
 import { readPdf } from '../../packages/core/test/pdf'
 import { expectNoErrors, layout, open } from './helpers'
 
@@ -272,6 +272,21 @@ test.describe('placeholder picker (A5)', () => {
     await page.getByTestId('col-0-width').fill('40')
     const after = (await page.getByTestId('flowcard-2').locator('.pld-flowcell.is-head').nth(0).boundingBox())!.width
     expect(after).toBeGreaterThan(before * 1.5)
+  })
+
+  test('a block gets spacing on every side, shown true to scale on the canvas', async ({ page }) => {
+    await open(page, 'layout=empty')
+    await page.getByTestId('add-flow-text').click()
+    const before = (await page.getByTestId('flowcard-0').boundingBox())!
+    await page.getByTestId('margin-top').fill('10')
+    await page.getByTestId('margin-left').fill('5')
+    await page.getByTestId('margin-bottom').fill('8')
+    await page.getByTestId('margin-right').fill('3')
+    expect(((await layout(page)).flow[0] as any).margin).toEqual({ top: 10, left: 5, bottom: 8, right: 3 })
+    const after = (await page.getByTestId('flowcard-0').boundingBox())!
+    expect(after.y - before.y).toBeGreaterThan(before.height * 0.2)
+    expect(after.x - before.x).toBeGreaterThan(0)
+    expect(after.width).toBeLessThan(before.width)
   })
 
   test('two blocks can sit side by side in the Content Box (canvas and PDF)', async ({ page }) => {

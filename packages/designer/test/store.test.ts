@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createEmptyLayout } from '@pdf-layouter/core'
+import { createEmptyLayout } from 'pdfmake-layout-designer-core'
 import { Store } from '../src/store'
 import { createTranslator, MESSAGES } from '../src/i18n'
 

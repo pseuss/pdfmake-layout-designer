@@ -43,10 +43,10 @@ export const FALLBACK_FONT = 'Roboto'
 
 /** Virtual file names under which the bundled Roboto is registered with pdfmake. */
 export const ROBOTO_FILES: Required<FontFiles> = {
-  normal: 'pdf-layouter-Roboto-Regular.ttf',
-  bold: 'pdf-layouter-Roboto-Medium.ttf',
-  italics: 'pdf-layouter-Roboto-Italic.ttf',
-  bolditalics: 'pdf-layouter-Roboto-MediumItalic.ttf',
+  normal: 'pdfmake-layout-designer-Roboto-Regular.ttf',
+  bold: 'pdfmake-layout-designer-Roboto-Medium.ttf',
+  italics: 'pdfmake-layout-designer-Roboto-Italic.ttf',
+  bolditalics: 'pdfmake-layout-designer-Roboto-MediumItalic.ttf',
 }
 
 export type PdfmakeFonts = Record<string, Required<FontFiles>>

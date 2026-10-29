@@ -53,7 +53,7 @@ export const RichBlockSchema = z.discriminatedUnion('type', [
 ])
 export type RichBlock = z.infer<typeof RichBlockSchema>
 
-/** Plain text, a run array (as in the concept example) or full blocks; always normalised to blocks. */
+/** Plain text, a run array or full blocks; always normalised to blocks. */
 export function toBlocks(input: string | Run[] | RichBlock[]): RichBlock[] {
   if (typeof input === 'string') {
     return input.split(/\n{2,}/).map((part) => ({ type: 'paragraph' as const, runs: [{ text: part }] }))
@@ -160,11 +160,23 @@ export const TableStyleSchema = z.object({
 })
 export type TableStyle = z.infer<typeof TableStyleSchema>
 
-const flowCommon = { font: z.string().optional(), visibleWhen: ConditionSchema.optional() }
-/** Text, tables and totals can share a row: `sameRow` puts a block next to the previous one, `width` is '*' (share the rest) or millimetres. */
-const rowCommon = { ...flowCommon, sameRow: z.boolean().optional(), width: z.union([z.literal('*'), mm.positive()]).optional() }
+/** Extra space (mm) around a Flow Block, on top of the block's own default spacing. Unset sides are 0. */
+export const MarginSchema = z.object({
+  top: mm.nonnegative().default(0),
+  right: mm.nonnegative().default(0),
+  bottom: mm.nonnegative().default(0),
+  left: mm.nonnegative().default(0),
+})
+export type Margin = z.output<typeof MarginSchema>
 
-export const FlowTextSchema = z.object({ ...rowCommon, type: z.literal('text'), content: RichContentSchema, margin: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional() })
+const flowCommon = { font: z.string().optional(), visibleWhen: ConditionSchema.optional() }
+/**
+ * Text, tables and totals can share a row: `sameRow` puts a block next to the previous one, `width` is '*' (share the rest) or millimetres
+ * (margins included), and `margin` keeps distance to the neighbours above, below, left and right.
+ */
+const rowCommon = { ...flowCommon, sameRow: z.boolean().optional(), width: z.union([z.literal('*'), mm.positive()]).optional(), margin: MarginSchema.optional() }
+
+export const FlowTextSchema = z.object({ ...rowCommon, type: z.literal('text'), content: RichContentSchema })
 export const FlowTableSchema = z.object({
   ...rowCommon,
   type: z.literal('table'),
@@ -176,7 +188,7 @@ export const TotalsRowSchema = z.object({
   label: z.string(),
   value: z.string(),
   bold: z.boolean().default(false),
-  /** Rule above the row. Unset: a bold row (except the first) gets one, as before this option existed. */
+  /** Rule above the row. Unset: a bold row (except the first) gets one. */
   line: z.boolean().optional(),
 })
 /** Whether the row at `index` has a rule above it. */

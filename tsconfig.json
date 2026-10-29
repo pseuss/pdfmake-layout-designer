@@ -1,8 +1,8 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": { "noEmit": true, "paths": {
-    "@pdf-layouter/core": ["./packages/core/src/index.ts"],
-    "@pdf-layouter/designer": ["./packages/designer/src/index.ts"]
+    "pdfmake-layout-designer-core": ["./packages/core/src/index.ts"],
+    "pdfmake-layout-designer": ["./packages/designer/src/index.ts"]
   } },
   "include": ["packages/*/src", "packages/*/test", "tests", "scripts", "*.ts"]
 }

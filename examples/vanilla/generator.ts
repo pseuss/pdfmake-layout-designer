@@ -1,5 +1,5 @@
 // Browser variant of the generator example: the same "database" rows and stored Layouts, but the PDFs are generated in the page.
-import { generate, generateBatch } from '@pdf-layouter/core'
+import { generate, generateBatch } from 'pdfmake-layout-designer-core'
 import db from '../shared/generator/db.json'
 import invoiceLayout from '../shared/generator/invoice.layout.json'
 import letterLayout from '../shared/generator/letter.layout.json'

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { Layout } from '@pdf-layouter/core'
+import type { Layout } from 'pdfmake-layout-designer-core'
 import { LayoutDocument } from '../src/document'
 
 const layout = (locale: string) => ({ schemaVersion: 1, locale }) as unknown as Layout

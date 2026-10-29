@@ -1,4 +1,4 @@
-import type { Box } from '@pdf-layouter/core'
+import type { Box } from 'pdfmake-layout-designer-core'
 
 export interface Rect {
   x: number

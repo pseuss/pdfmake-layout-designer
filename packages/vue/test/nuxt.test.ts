@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import pdfLayouterModule from '../src/nuxt'
+import pdfmakeLayoutDesignerModule from '../src/nuxt'
 
 function setup(options: Record<string, unknown> = {}) {
   const hooks: Record<string, (components: Record<string, unknown>[]) => void> = {}
   const nuxt = { options, hook: (name: string, cb: (components: Record<string, unknown>[]) => void) => void (hooks[name] = cb) }
-  pdfLayouterModule({}, nuxt as never)
+  pdfmakeLayoutDesignerModule({}, nuxt as never)
   return { options, hooks }
 }
 
@@ -26,6 +26,6 @@ describe('Nuxt module', () => {
     const components: Record<string, unknown>[] = []
     hooks['components:extend']!(components)
     expect(components).toHaveLength(1)
-    expect(components[0]).toMatchObject({ pascalName: 'LayoutDesigner', export: 'LayoutDesigner', filePath: '@pdf-layouter/vue' })
+    expect(components[0]).toMatchObject({ pascalName: 'LayoutDesigner', export: 'LayoutDesigner', filePath: 'pdfmake-layout-designer-vue' })
   })
 })

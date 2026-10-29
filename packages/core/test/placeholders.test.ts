@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyFormatter, evaluateCondition, lookup, parsePlaceholders, placeholderPaths, resolvePlaceholders, type Warning } from '@pdf-layouter/core'
+import { applyFormatter, evaluateCondition, lookup, parsePlaceholders, placeholderPaths, resolvePlaceholders, type Warning } from 'pdfmake-layout-designer-core'
 
 const de = { locale: 'de-DE', currency: 'EUR' }
 const en = { locale: 'en-US', currency: 'USD' }

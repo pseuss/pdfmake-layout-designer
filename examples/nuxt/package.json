@@ -9,8 +9,8 @@
     "start": "PORT=5302 HOST=0.0.0.0 node .output/server/index.mjs"
   },
   "dependencies": {
-    "@pdf-layouter/core": "workspace:*",
-    "@pdf-layouter/vue": "workspace:*",
+    "pdfmake-layout-designer-core": "workspace:*",
+    "pdfmake-layout-designer-vue": "workspace:*",
     "nuxt": "^4.6.3",
     "vue": "^3.5.0"
   }

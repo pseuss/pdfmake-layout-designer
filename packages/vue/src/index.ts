@@ -1,6 +1,6 @@
 import { defineComponent, h, onBeforeUnmount, onMounted, ref, shallowRef, toRaw, watch, type PropType } from 'vue'
-import type { Data, FontRegistry, Layout, LayoutInput } from '@pdf-layouter/core'
-import { Designer, LayoutDocument, pickDesignerOptions, type DocumentStatus, type LayoutDocumentOptions, type ImageOptions, type Locale, type PlaceholderCatalog, type ThemeMode } from '@pdf-layouter/designer'
+import type { Data, FontRegistry, Layout, LayoutInput } from 'pdfmake-layout-designer-core'
+import { Designer, LayoutDocument, pickDesignerOptions, type DocumentStatus, type LayoutDocumentOptions, type ImageOptions, type Locale, type PlaceholderCatalog, type ThemeMode } from 'pdfmake-layout-designer'
 
 /**
  * Vue 3 wrapper around the framework-agnostic Designer (`v-model` carries the Layout JSON).

@@ -1,5 +1,5 @@
-import { PAGE_SIZES_MM, totalsRowLine, type Column, type Condition, type FlowBlock, type LeafCondition, type StaticElement } from '@pdf-layouter/core'
-import type { FontRegistry } from '@pdf-layouter/core'
+import { PAGE_SIZES_MM, totalsRowLine, type Column, type Condition, type FlowBlock, type LeafCondition, type StaticElement } from 'pdfmake-layout-designer-core'
+import type { FontRegistry } from 'pdfmake-layout-designer-core'
 import { Fields } from './fields'
 import { FLOW_LABEL_KEYS } from './flowcards'
 import { alignSelection, deleteSelection, duplicateSelection, moveFlow, moveLayer } from './actions'
@@ -397,6 +397,14 @@ export class Inspector {
           }, 'block-width'),
         )
       }
+    }
+    if (block.type !== 'pageBreak' && block.type !== 'dynamicSections') {
+      this.propsEl.append(
+        h('div', { class: 'pld-section-title' }, T('prop.marginTitle')),
+        ...(['top', 'bottom', 'left', 'right'] as const).map((side) =>
+          this.fields.num(T(`prop.${side}` as const), block.margin?.[side] ?? 0, (v) => this.editFlow<'text'>(index, (b) => void (b.margin = { top: 0, right: 0, bottom: 0, left: 0, ...b.margin, [side]: v })), `margin-${side}`, { min: 0, step: 1 }),
+        ),
+      )
     }
     // one panel per Flow Block type
     const panels: { [K in FlowBlock['type']]: (block: Block<K>) => void } = {

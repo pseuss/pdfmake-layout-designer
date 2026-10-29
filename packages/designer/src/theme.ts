@@ -89,7 +89,7 @@ export class ThemeController {
     }
     const hex = normalizeHex(color)
     if (!hex) {
-      console.warn(`[pdf-layouter] primaryColor must be a hex colour such as "#0d9488", got "${color}"`)
+      console.warn(`[pdfmake-layout-designer] primaryColor must be a hex colour such as "#0d9488", got "${color}"`)
       return
     }
     this.primary = hex

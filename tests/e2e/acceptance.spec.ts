@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
-import { generate, generateBatch } from '@pdf-layouter/core'
+import { generate, generateBatch } from 'pdfmake-layout-designer-core'
 import { invoiceData, serialRecords } from '../../fixtures/data'
 import { nodeFontRegistry } from '../../fixtures/node'
 import { readPdf } from '../../packages/core/test/pdf'

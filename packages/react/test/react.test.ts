@@ -3,7 +3,7 @@ import { act, createElement, StrictMode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Layout } from '@pdf-layouter/core'
+import type { Layout } from 'pdfmake-layout-designer-core'
 import { LayoutDesigner, type Designer } from '../src'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { defineFonts } from '@pdf-layouter/core'
-import type { Layout, LayoutInput } from '@pdf-layouter/core'
-import { useLayoutDocument } from '@pdf-layouter/vue'
+import { defineFonts } from 'pdfmake-layout-designer-core'
+import type { Layout, LayoutInput } from 'pdfmake-layout-designer-core'
+import { useLayoutDocument } from 'pdfmake-layout-designer-vue'
 import { catalog, fontFamilies, sampleData, starterLayout } from '../../shared/demo-data.mjs'
 
 // load the stored layout on the server (SSR) – this is where a DB query would happen

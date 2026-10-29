@@ -1,23 +1,32 @@
-# pdf-layouter
+# pdfmake-layout-designer
 
 A small, embeddable layout designer and PDF generator built on [pdfmake](https://pdfmake.github.io/docs/).
 Users design a layout visually; your app stores **one JSON per layout**; later the JSON plus your data becomes a PDF.
-MIT licensed. Works in React, Next, Vue, Nuxt, or plain TypeScript.
+Made for invoices, quotes and form letters (DIN 5008 address windows, stationery, tables that break across pages). MIT licensed.
+Works in React, Next, Vue, Nuxt, or plain TypeScript.
+
+> **Not affiliated with pdfmake.** This is an independent open-source project that uses the excellent [pdfmake](https://pdfmake.github.io/docs/) library to render PDFs. "pdfmake" is named only to say what the project builds on.
+
+```bash
+npm install pdfmake-layout-designer-core    # generate PDFs (Node and browser)
+npm install pdfmake-layout-designer         # visual editor, plain TypeScript
+npm install pdfmake-layout-designer-react   # or pdfmake-layout-designer-vue
+```
 
 | Package | What it is |
 | --- | --- |
-| `@pdf-layouter/core` | Schema + validation, placeholder resolver, compiler (layout JSON → pdfmake), `generate()` / `generateBatch()`. Runs in browser **and** Node, no UI dependencies. |
-| `@pdf-layouter/designer` | The visual editor in vanilla TypeScript: `new Designer({ container, … })`. |
-| `@pdf-layouter/react` | `<LayoutDesigner />` wrapper (~60 lines). |
-| `@pdf-layouter/vue` | `<LayoutDesigner />` wrapper for Vue 3 / Nuxt (~70 lines). |
+| `pdfmake-layout-designer-core` | Schema + validation, placeholder resolver, compiler (layout JSON → pdfmake), `generate()` / `generateBatch()`. Runs in browser **and** Node, no UI dependencies. |
+| `pdfmake-layout-designer` | The visual editor in vanilla TypeScript: `new Designer({ container, … })`. |
+| `pdfmake-layout-designer-react` | `<LayoutDesigner />` for React and Next, plus `useLayoutDocument` and the Next config adapter. |
+| `pdfmake-layout-designer-vue` | `<LayoutDesigner />` for Vue 3 and Nuxt, plus `useLayoutDocument` and the Nuxt module. |
 
-Scope: the library only. Storage, tenants, permissions, data retrieval, calculations and ZUGFeRD XML belong to the host app
-(see `docs/adr/0003-library-does-not-calculate.md`). Domain vocabulary is in [`GLOSSARY.md`](GLOSSARY.md), decisions in [`docs/adr`](docs/adr).
+Scope: the library only. Storage, tenants, permissions, data retrieval, calculations and ZUGFeRD XML belong to your app.
+The library never calculates: sums and taxes come finished from your data.
 
 ## Generate a PDF
 
 ```ts
-import { generate, generateBatch } from '@pdf-layouter/core'
+import { generate, generateBatch } from 'pdfmake-layout-designer-core'
 
 // Use case 1: one document (invoice, quote)
 const pdf: Uint8Array = await generate(layout, data, { fonts: fontRegistry })
@@ -35,7 +44,7 @@ The library is stateless: a layout JSON is a layout. Invalid or newer JSON is re
 ## Embed the Designer
 
 ```ts
-import { Designer } from '@pdf-layouter/designer'
+import { Designer } from 'pdfmake-layout-designer'
 
 const designer = new Designer({
   container: document.getElementById('designer')!,
@@ -60,7 +69,7 @@ designer.destroy()
 **React / Next:**
 
 ```tsx
-import { LayoutDesigner } from '@pdf-layouter/react'
+import { LayoutDesigner } from 'pdfmake-layout-designer-react'
 <LayoutDesigner value={layout} onChange={setLayout} placeholders={catalog} sampleData={sample} fonts={fonts} />
 ```
 
@@ -78,13 +87,13 @@ Both wrappers render an empty frame on the server and create the Designer after 
 
 ```js
 // next.config.mjs
-import { withPdfLayouter } from '@pdf-layouter/react/next'
-export default withPdfLayouter({ /* your config */ })
+import { withLayoutDesigner } from 'pdfmake-layout-designer-react/next'
+export default withLayoutDesigner({ /* your config */ })
 ```
 
 ```ts
 // nuxt.config.ts: also auto-imports <LayoutDesigner>
-export default defineNuxtConfig({ modules: ['@pdf-layouter/vue/nuxt'] })
+export default defineNuxtConfig({ modules: ['pdfmake-layout-designer-vue/nuxt'] })
 ```
 
 Return the PDF from a route with `pdfResponse(bytes, { filename })` (a standard `Response`, works in Next route handlers, Nitro, Hono, Bun, Deno).
@@ -102,7 +111,7 @@ designer.setPrimaryColor('#7c3aed') // hex; undefined restores the default
 * `theme: 'auto'` (default) follows your page: `<html class="dark">` / `class="light"`, `data-theme` or `data-bs-theme` on `<html>`, otherwise the operating system. It reacts live to changes.
 * `primaryColor` drives selection outlines, handles, the content box, active tabs and pressed buttons; text on it switches between white and near-black for contrast. The paper on the canvas stays white in dark mode.
 * Everything else is a CSS custom property on `.pld-root` (`--pld-bg`, `--pld-surface`, `--pld-border`, `--pld-text`, `--pld-radius`, `--pld-font`, …) that you can override in your own CSS.
-* The styles are written with Tailwind CSS v4 at build time and ship as plain scoped CSS: your app needs no Tailwind (ADR 0006). Change `packages/designer/src/theme.css`, then run `node scripts/build-styles.mjs`.
+* The styles are written with Tailwind CSS v4 at build time and ship as plain scoped CSS: your app needs no Tailwind and no CSS import.
 
 ## Load and save (the usual Nuxt / Next flow)
 
@@ -128,13 +137,13 @@ const { layout, status, save } = useLayoutDocument({ initial: stored.value, fall
 <template><LayoutDesigner v-model="layout" /><button @click="save">Save</button> {{ status }}</template>
 ```
 
-The same workflow without a framework is the `LayoutDocument` class (`@pdf-layouter/designer`): `change` is the Designer's `onChange`, `save()` calls your function, `subscribe` tells you about status changes. An edit made while the stored layout is still loading is never overwritten by it.
+The same workflow without a framework is the `LayoutDocument` class (`pdfmake-layout-designer`): `change` is the Designer's `onChange`, `save()` calls your function, `subscribe` tells you about status changes. An edit made while the stored layout is still loading is never overwritten by it.
 
 * `onChange(layout)` (React) / `v-model` (Vue) / `new Designer({ onChange })` deliver the **complete, self-contained JSON after every edit**.
   `designer.getLayout()` returns the same JSON at any time, so a save button can also read it directly.
 * If the layout arrives *after* the component is mounted (client-side fetch), pass it when it is there: the wrappers call `setLayout()` for you, without echoing it back through `onChange`. A value with the same content as what the Designer shows is ignored.
 * Fonts, `locale` and `images` are read once when the Designer is created.
-* Working examples with an API route as "database": [`examples/next`](examples/next) and [`examples/nuxt`](examples/nuxt) (`pnpm --filter example-next dev`, `pnpm --filter example-nuxt dev`), both rendering PDFs on the server too.
+* Working examples with an API route as "database" are in the repository: [`examples/next`](examples/next) and [`examples/nuxt`](examples/nuxt), both rendering PDFs on the server too.
 
 ## Designer features
 
@@ -158,6 +167,18 @@ You can use several `dynamicSections` blocks reading different keys, and in a ba
 **Form letters:** put the whole letter in the layout – rich text next to `{{placeholders}}`, address field, logo – and send one data object per recipient.
 For recipient-specific passages use `visibleWhen` on a block, or a `dynamicSections` block if the passages differ in number and order.
 
+## Spacing between flow blocks
+
+Every text, table and totals block can carry a `margin` (millimetres, all sides optional, default 0) that keeps distance to its neighbours. It is added to the block's own default spacing:
+
+```json
+{ "type": "text", "content": "Thank you!", "margin": { "top": 12, "bottom": 6, "left": 0, "right": 0 } }
+```
+
+* `top` / `bottom` space the block from the blocks above and below it.
+* `left` / `right` indent the block; for blocks that share a row (`sameRow`) they space it from the neighbour to the left or right. A block's `width` in a row is its outer width, margins included.
+* In the Designer: select a block and use *Spacing around the block* in the properties panel. The canvas shows the spacing true to scale.
+
 ## Fonts per element
 
 The document font (`page.defaults.font`) is the default. Every text box, address field and flow block (text, table, totals, dynamic sections) can set
@@ -173,11 +194,11 @@ Comparisons combine with `all` (AND), `any` (OR) and `not`, nested as deep as ne
 { "visibleWhen": { "all": [ { "path": "betrag", "op": "gt", "value": 100 }, { "any": [ { "path": "vip" }, { "not": { "path": "rabatt" } } ] } ] } }
 ```
 
-The Designer has an expression builder for this. It is evaluated per Record, so in a batch each letter shows or hides it on its own. It is still a closed set of operators, not a scripting language (ADR 0003).
+The Designer has an expression builder for this. It is evaluated per Record, so in a batch each letter shows or hides it on its own. It is a closed set of operators, not a scripting language.
 
 ## Layout JSON
 
-A layout has two layers (ADR 0001): a **static layer** of freely positioned elements and a **flow layer** that flows and breaks across pages.
+A layout has two layers: a **static layer** of freely positioned elements and a **flow layer** that flows and breaks across pages.
 All lengths are millimetres.
 
 ```jsonc
@@ -232,7 +253,7 @@ const placeholderCatalog = {
 Your app serves the font files (TTF/OTF, e.g. from Google Fonts, OFL) and declares them **once**. The layout stores only the family name.
 
 ```ts
-import { defineFonts } from '@pdf-layouter/core'
+import { defineFonts } from 'pdfmake-layout-designer-core'
 
 const fonts = defineFonts([
   { family: 'Inter', files: { normal: 'Inter-Regular.ttf', bold: 'Inter-Bold.ttf', italics: 'Inter-Italic.ttf', bolditalics: 'Inter-BoldItalic.ttf' } },
@@ -261,18 +282,36 @@ The rows are in `examples/shared/generator/db.json`, the Layouts are `invoice.la
 
 ## Development
 
+The repository is a pnpm workspace (`packages/*` are the published packages, `examples/*` are demos).
+
 ```bash
 pnpm install
-pnpm fixtures      # regenerate image fixtures (fonts in fixtures/fonts are Google Fonts, OFL)
 pnpm check         # typecheck, build, unit tests, built-package smoke test, Playwright e2e
 pnpm dev           # demo app with all fixtures: http://localhost:5199
 ```
 
-Requirements coverage: [`docs/coverage.md`](docs/coverage.md). Specification: [`docs/spec.md`](docs/spec.md).
+The Designer's styles are written with Tailwind CSS v4 in `packages/designer/src/theme.css` and compiled into a plain CSS string: run `node scripts/build-styles.mjs` after changing them.
 
 ## Known limits
 
 * The rich-text editor edits bold, italic, underline, text colour, font size (pt), paragraph alignment and lists. A font family is set per block, not per word.
 * `strategy: 'merge'` cannot combine with `pdfa` or `attachments` (pdf-lib joins plain PDFs).
 * The live preview updates while the preview tab is open.
-* pdfmake has one margin set per document: see "Content box" above.
+* pdfmake has one set of page margins per document: see "Content box" above.
+
+## Built on
+
+This project stands on the work of others. Thank you to:
+
+| Project | Used for | License |
+| --- | --- | --- |
+| [pdfmake](https://github.com/bpampuch/pdfmake) | PDF rendering | MIT |
+| [pdf-lib](https://github.com/Hopding/pdf-lib) | joining PDFs in `generateBatch` (optional peer dependency) | MIT |
+| [Zod](https://zod.dev) | schema validation | MIT |
+| [Tiptap](https://tiptap.dev) / [ProseMirror](https://prosemirror.net) | rich-text editing in the Designer | MIT |
+| [Tailwind CSS](https://tailwindcss.com) | Designer styles, compiled at build time | MIT |
+| [Roboto](https://github.com/googlefonts/roboto) | bundled default font | Apache-2.0 |
+
+## License
+
+[MIT](LICENSE). The bundled Roboto font is licensed under Apache-2.0.

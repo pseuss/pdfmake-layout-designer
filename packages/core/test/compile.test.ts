@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compile, mmToPt, toDocDefinition, type Warning } from '@pdf-layouter/core'
+import { compile, mmToPt, toDocDefinition, type Warning } from 'pdfmake-layout-designer-core'
 import { invoiceData, invoiceLayout, serialRecords, serialLayout } from '../../../fixtures/data'
 import { loadAssets } from '../../../fixtures/node'
 

@@ -1,5 +1,5 @@
-import { lookup, parsePlaceholders, type Layout } from '@pdf-layouter/core'
-import type { Data } from '@pdf-layouter/core'
+import { lookup, parsePlaceholders, type Layout } from 'pdfmake-layout-designer-core'
+import type { Data } from 'pdfmake-layout-designer-core'
 
 export interface PlaceholderField {
   key: string

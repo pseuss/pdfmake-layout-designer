@@ -1,4 +1,4 @@
-import { createDefaultLayout, pageNumberElement, pageSizeMm, parseLayout, type Data, type FontRegistry, type Layout, type LayoutInput } from '@pdf-layouter/core'
+import { createDefaultLayout, pageNumberElement, pageSizeMm, parseLayout, type Data, type FontRegistry, type Layout, type LayoutInput } from 'pdfmake-layout-designer-core'
 import { deleteSelection, duplicateSelection, moveFlow, nudgeSelection } from './actions'
 import { Canvas } from './canvas'
 import { clear, h, isEditable } from './dom'

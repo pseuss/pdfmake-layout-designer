@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test'
-import type { Layout } from '@pdf-layouter/core'
+import type { Layout } from 'pdfmake-layout-designer-core'
 
 export async function open(page: Page, query = '', fit = true): Promise<string[]> {
   const errors: string[] = []

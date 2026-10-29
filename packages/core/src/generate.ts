@@ -124,7 +124,7 @@ async function renderExclusive(pdfmake: PdfMake, doc: DocDefinition, fonts: Pdfm
   if (options.attachments?.length) {
     pdfDoc.files = {}
     options.attachments.forEach((a, i) => {
-      const vfsName = `pdf-layouter-attachment-${i}-${a.filename}`
+      const vfsName = `pdfmake-layout-designer-attachment-${i}-${a.filename}`
       attachmentFiles.push(vfsName)
       pdfmake.virtualfs.writeFileSync(vfsName, toBase64(a.data), 'base64')
       pdfDoc.files[a.filename] = {

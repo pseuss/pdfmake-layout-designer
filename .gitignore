@@ -5,3 +5,8 @@ test-results
 playwright-report
 *.tsbuildinfo
 .scratch
+
+# Local working notes (not published)
+AGENTS.md
+GLOSSARY.md
+docs/

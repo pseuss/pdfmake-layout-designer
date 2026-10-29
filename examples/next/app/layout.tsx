@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-export const metadata = { title: 'PDF Layouter – Next.js' }
+export const metadata = { title: 'pdfmake Layout Designer – Next.js' }
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

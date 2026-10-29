@@ -1,4 +1,4 @@
-import { defineFonts, generate, generateBatch, pdfResponse as toPdfResponse } from '@pdf-layouter/core'
+import { defineFonts, generate, generateBatch, pdfResponse as toPdfResponse } from 'pdfmake-layout-designer-core'
 import { fontFamilies } from '../../shared/demo-data.mjs'
 import { createGeneratorService, NotFoundError, parseIds } from '../../shared/generator/service.mjs'
 

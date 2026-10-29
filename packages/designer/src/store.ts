@@ -1,4 +1,4 @@
-import { parseLayout, pruneAssets, type Data, type Layout } from '@pdf-layouter/core'
+import { parseLayout, pruneAssets, type Data, type Layout } from 'pdfmake-layout-designer-core'
 import type { PlaceholderCatalog } from './warnings'
 
 export type Selection = { kind: 'none' } | { kind: 'static'; id: string } | { kind: 'multi'; ids: string[] } | { kind: 'flow'; index: number } | { kind: 'contentBox' }

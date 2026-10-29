@@ -1,4 +1,4 @@
-import { fitColumnWidths, applyFormatter, lookup, ROW_GAP_MM, rowWidthsMm, toBlocks, totalsRowLine, type Data, type FlowBlock, type Layout } from '@pdf-layouter/core'
+import { fitColumnWidths, applyFormatter, lookup, ROW_GAP_MM, rowWidthsMm, toBlocks, totalsRowLine, type Data, type FlowBlock, type Layout } from 'pdfmake-layout-designer-core'
 import { h } from './dom'
 import { cssFontFamily } from './fonts'
 import type { Translator } from './i18n'
@@ -64,9 +64,12 @@ function renderFlowCard(c: FlowContext, block: FlowBlock, index: number, sharedM
   else if (block.type === 'dynamicSections') card.style.height = px(FLOW_HEIGHT_MM.dynamicSections)
   // a width in millimetres is true to scale, '*' shares what is left of the row
   const width = 'width' in block ? block.width : undefined
-  const availMm = sharedMm ?? boxMm
-  if (sharedMm !== undefined) Object.assign(card.style, { width: px(sharedMm), flex: 'none', maxWidth: '100%' })
-  else if (typeof width === 'number' && block.type === 'totals') Object.assign(card.style, { width: px(Math.min(width, boxMm)), flex: 'none' })
+  const margin = ('margin' in block && block.margin) || undefined
+  const sides = margin ? margin.left + margin.right : 0
+  const availMm = Math.max(0, (sharedMm ?? boxMm) - sides)
+  if (margin) card.style.margin = `${px(margin.top)} ${px(margin.right)} ${px(margin.bottom)} ${px(margin.left)}`
+  if (sharedMm !== undefined) Object.assign(card.style, { width: px(availMm), flex: 'none', maxWidth: '100%' })
+  else if (typeof width === 'number' && block.type === 'totals') Object.assign(card.style, { width: px(Math.min(width, boxMm - sides)), flex: 'none' })
 
   const body = h('div', { class: 'pld-flowbody', style: { fontFamily: font, fontSize: pt(layout.page.defaults.size), color: layout.page.defaults.color } })
   const text = (text: string, into: HTMLElement) => {

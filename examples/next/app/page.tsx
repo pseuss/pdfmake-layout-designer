@@ -1,8 +1,8 @@
 'use client'
 
-import { defineFonts, type LayoutInput } from '@pdf-layouter/core'
-import { LayoutDesigner, useLayoutDocument } from '@pdf-layouter/react'
-import type { PlaceholderCatalog } from '@pdf-layouter/react'
+import { defineFonts, type LayoutInput } from 'pdfmake-layout-designer-core'
+import { LayoutDesigner, useLayoutDocument } from 'pdfmake-layout-designer-react'
+import type { PlaceholderCatalog } from 'pdfmake-layout-designer-react'
 import { catalog, fontFamilies, sampleData, starterLayout } from '../../shared/demo-data.mjs'
 
 const fonts = defineFonts(fontFamilies).at('/fonts') // the same declaration the server uses, resolved to URLs
